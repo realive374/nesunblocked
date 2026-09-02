@@ -1,0 +1,16 @@
+{
+  "title": "Vocabulary LINCS Study Set",
+  "source": "LINCS vocabulary worksheets (term + definition only)",
+  "terms": [
+    { "term": "abstain",    "definition": "hold back" },
+    { "term": "accede",     "definition": "to agree to a request or demand" },
+    { "term": "accessible", "definition": "obtainable" },
+    { "term": "affluent",   "definition": "having a large amount of money or wealth" },
+    { "term": "animate",    "definition": "to make something alive; give it energy and spirit" },
+    { "term": "boisterous", "definition": "loud, energetic" },
+    { "term": "cordial",    "definition": "affectionate, politely warm" },
+    { "term": "cunning",    "definition": "clever at being deceitful" },
+    { "term": "curtail",    "definition": "reduce, restrict, shorten" },
+    { "term": "diligent",   "definition": "showing care in doing one's work" }
+  ]
+}

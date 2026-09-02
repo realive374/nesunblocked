@@ -1,0 +1,1155 @@
+<title>Vocab Buzzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+  :root {
+    --ground: #E9ECF2;
+    --surface: #FFFFFF;
+    --surface-2: #F3F5F9;
+    --ink: #13161F;
+    --muted: #5E667E;
+    --hairline: #D3D8E3;
+    --shadow: 0 1px 2px rgba(19, 22, 31, .06), 0 8px 24px rgba(19, 22, 31, .08);
+    --shadow-lift: 0 2px 4px rgba(19, 22, 31, .08), 0 14px 34px rgba(19, 22, 31, .16);
+
+    --t1-bg: #C43B52;  --t1-fg: #FFFFFF;
+    --t2-bg: #2560C4;  --t2-fg: #FFFFFF;
+    --t3-bg: #E3A21C;  --t3-fg: #241B06;
+    --t4-bg: #17845C;  --t4-fg: #FFFFFF;
+
+    --good: #17845C;
+    --bad: #C43B52;
+
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+    --data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1017;
+      --surface: #171B25;
+      --surface-2: #1F2431;
+      --ink: #E9EBF3;
+      --muted: #99A1B8;
+      --hairline: #2A3040;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .38);
+      --shadow-lift: 0 2px 4px rgba(0, 0, 0, .55), 0 14px 34px rgba(0, 0, 0, .5);
+      --t1-bg: #D24E64;
+      --t2-bg: #3B76DC;
+      --t3-bg: #EDAE2C;
+      --t4-bg: #1D9E6E;
+      --good: #35B583;
+      --bad: #E4697D;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0E1017;
+    --surface: #171B25;
+    --surface-2: #1F2431;
+    --ink: #E9EBF3;
+    --muted: #99A1B8;
+    --hairline: #2A3040;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .38);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, .55), 0 14px 34px rgba(0, 0, 0, .5);
+    --t1-bg: #D24E64;
+    --t2-bg: #3B76DC;
+    --t3-bg: #EDAE2C;
+    --t4-bg: #1D9E6E;
+    --good: #35B583;
+    --bad: #E4697D;
+  }
+
+  * { box-sizing: border-box; }
+
+  [hidden] { display: none !important; }
+
+  #screen-play { display: flex; flex-direction: column; gap: 16px; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 28px 20px 56px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .eyebrow {
+    font-family: var(--data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-direction: column; gap: 10px; }
+
+  .masthead h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(34px, 6vw, 54px);
+    line-height: 1.02;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+  .rule {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      var(--t1-bg) 0 25%, var(--t2-bg) 25% 50%,
+      var(--t3-bg) 50% 75%, var(--t4-bg) 75% 100%);
+  }
+
+  /* ---------- study list ---------- */
+  .list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .glossary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .entry {
+    background: var(--surface);
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .entry dt {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -.01em;
+  }
+
+  .entry dd { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  /* ---------- buttons ---------- */
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    font-family: var(--body);
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+
+  button:focus-visible {
+    outline: 3px solid var(--t2-bg);
+    outline-offset: 2px;
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--ground);
+    box-shadow: var(--shadow);
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+
+  .btn-quiet {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--hairline);
+  }
+
+  .btn-quiet:hover { background: var(--surface-2); }
+
+  .hint {
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  kbd {
+    font-family: var(--data);
+    font-size: 11px;
+    border: 1px solid var(--hairline);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  /* ---------- scoreboard ---------- */
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .counter {
+    font-family: var(--data);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+
+  .chip {
+    font-family: var(--data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+    color: var(--muted);
+  }
+
+  .score {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+
+  .score span {
+    font-family: var(--data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: var(--muted);
+    margin-right: 8px;
+    text-transform: uppercase;
+  }
+
+  .clock-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    overflow: hidden;
+  }
+
+  .clock-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--t4-bg);
+    transform-origin: left center;
+    transition: width .1s linear, background .3s ease;
+  }
+
+  .clock-fill.warn { background: var(--t3-bg); }
+  .clock-fill.danger { background: var(--t1-bg); }
+
+  /* ---------- question ---------- */
+  .prompt {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: clamp(24px, 5vw, 44px) clamp(20px, 5vw, 40px);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .prompt h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(23px, 3.6vw, 34px);
+    line-height: 1.2;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .tile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    padding: 18px 20px;
+    min-height: 88px;
+    border-radius: 14px;
+    border: none;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    box-shadow: var(--shadow);
+  }
+
+  .tile:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  .tile:disabled { cursor: default; }
+
+  .tile[data-slot="1"] { background: var(--t1-bg); color: var(--t1-fg); }
+  .tile[data-slot="2"] { background: var(--t2-bg); color: var(--t2-fg); }
+  .tile[data-slot="3"] { background: var(--t3-bg); color: var(--t3-fg); }
+  .tile[data-slot="4"] { background: var(--t4-bg); color: var(--t4-fg); }
+
+  .glyph {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .22);
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .tile[data-slot="3"] .glyph { background: rgba(36, 27, 6, .18); }
+
+  .tile.dim { opacity: .32; }
+
+  .tile.picked-wrong {
+    opacity: .7;
+    box-shadow: 0 0 0 3px var(--ground), 0 0 0 6px var(--ink);
+  }
+
+  .tile.is-answer {
+    box-shadow: 0 0 0 3px var(--ground), 0 0 0 6px var(--good);
+  }
+
+  .verdict {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-left: 5px solid var(--muted);
+  }
+
+  .verdict.good { border-left-color: var(--good); }
+  .verdict.bad { border-left-color: var(--bad); }
+
+  .verdict-body { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+
+  .verdict-title {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -.01em;
+  }
+
+  .verdict.good .verdict-title { color: var(--good); }
+  .verdict.bad .verdict-title { color: var(--bad); }
+
+  .verdict-fact { font-size: 15px; color: var(--ink); }
+  .verdict-fact b { font-family: var(--display); font-weight: 600; }
+
+  /* ---------- results ---------- */
+  .final {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: clamp(24px, 5vw, 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .final h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(28px, 5vw, 40px);
+    letter-spacing: -.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .tally { display: flex; gap: 28px; flex-wrap: wrap; }
+
+  .tally div { display: flex; flex-direction: column; gap: 2px; }
+
+  .tally b {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 30px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+
+  .missed {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .missed-row {
+    background: var(--surface-2);
+    padding: 11px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+
+  .missed-row b {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 17px;
+    min-width: 118px;
+  }
+
+  .missed-row span { color: var(--muted); font-size: 15px; }
+
+  .tick {
+    font-family: var(--data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 14px;
+  }
+
+  @media (max-width: 620px) {
+    .glossary { grid-template-columns: minmax(0, 1fr); }
+    .tiles { grid-template-columns: minmax(0, 1fr); }
+    .tile { min-height: 68px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    button:hover { transform: none !important; }
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <p class="eyebrow">10 words &middot; 20 questions &middot; both directions</p>
+    <h1>Vocab Buzzer</h1>
+    <div class="rule"></div>
+    <p class="lede">Round one shows the word and asks for the meaning. Round two flips it and
+      asks for the word. Answer fast &mdash; the clock is worth as much as being right.</p>
+  </header>
+
+  <!-- START -->
+  <section id="screen-start">
+    <div class="list-head" style="margin-bottom:12px">
+      <p class="eyebrow" style="margin:0">The study list</p>
+      <p class="hint" id="best-line" hidden></p>
+    </div>
+    <dl class="glossary" id="glossary"></dl>
+    <div class="row" style="margin-top:20px">
+      <button class="btn-primary" id="btn-start">Start the round</button>
+      <p class="hint">Answer with <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>, continue with <kbd>enter</kbd></p>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section id="screen-play" hidden>
+    <div class="scoreboard">
+      <div class="row">
+        <span class="counter" id="counter">Question 1 of 20</span>
+        <span class="chip" id="round-chip">word &rarr; meaning</span>
+      </div>
+      <div class="score"><span>score</span><b id="score">0</b></div>
+    </div>
+    <div class="clock-track"><div class="clock-fill" id="clock"></div></div>
+    <div class="prompt">
+      <p class="eyebrow" id="prompt-kicker">Pick the meaning</p>
+      <h2 id="prompt-text">&nbsp;</h2>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div id="verdict-slot"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-done" hidden></section>
+
+  <footer>
+    Words and definitions transcribed from the LINCS worksheets. Part of speech, synonyms,
+    sentences and drawings were left out on purpose &mdash; this drills the two things a test asks for.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TERMS = [
+  {
+    "term": "abstain",
+    "definition": "hold back"
+  },
+  {
+    "term": "accede",
+    "definition": "to agree to a request or demand"
+  },
+  {
+    "term": "accessible",
+    "definition": "obtainable"
+  },
+  {
+    "term": "affluent",
+    "definition": "having a large amount of money or wealth"
+  },
+  {
+    "term": "animate",
+    "definition": "to make something alive; give it energy and spirit"
+  },
+  {
+    "term": "boisterous",
+    "definition": "loud, energetic"
+  },
+  {
+    "term": "cordial",
+    "definition": "affectionate, politely warm"
+  },
+  {
+    "term": "cunning",
+    "definition": "clever at being deceitful"
+  },
+  {
+    "term": "curtail",
+    "definition": "reduce, restrict, shorten"
+  },
+  {
+    "term": "diligent",
+    "definition": "showing care in doing one's work"
+  }
+];
+  var BANK = [
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"abstain\" mean?",
+    "term": "abstain",
+    "answers": [
+      "obtainable",
+      "hold back",
+      "loud, energetic",
+      "to agree to a request or demand"
+    ],
+    "correct": 2
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"accede\" mean?",
+    "term": "accede",
+    "answers": [
+      "reduce, restrict, shorten",
+      "clever at being deceitful",
+      "hold back",
+      "to agree to a request or demand"
+    ],
+    "correct": 4
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"accessible\" mean?",
+    "term": "accessible",
+    "answers": [
+      "obtainable",
+      "affectionate, politely warm",
+      "having a large amount of money or wealth",
+      "showing care in doing one's work"
+    ],
+    "correct": 1
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"affluent\" mean?",
+    "term": "affluent",
+    "answers": [
+      "obtainable",
+      "hold back",
+      "having a large amount of money or wealth",
+      "loud, energetic"
+    ],
+    "correct": 3
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"animate\" mean?",
+    "term": "animate",
+    "answers": [
+      "reduce, restrict, shorten",
+      "to make something alive; give it energy and spirit",
+      "showing care in doing one's work",
+      "affectionate, politely warm"
+    ],
+    "correct": 2
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"boisterous\" mean?",
+    "term": "boisterous",
+    "answers": [
+      "clever at being deceitful",
+      "obtainable",
+      "to agree to a request or demand",
+      "loud, energetic"
+    ],
+    "correct": 4
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"cordial\" mean?",
+    "term": "cordial",
+    "answers": [
+      "affectionate, politely warm",
+      "showing care in doing one's work",
+      "loud, energetic",
+      "hold back"
+    ],
+    "correct": 1
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"cunning\" mean?",
+    "term": "cunning",
+    "answers": [
+      "to make something alive; give it energy and spirit",
+      "having a large amount of money or wealth",
+      "clever at being deceitful",
+      "reduce, restrict, shorten"
+    ],
+    "correct": 3
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"curtail\" mean?",
+    "term": "curtail",
+    "answers": [
+      "to agree to a request or demand",
+      "affectionate, politely warm",
+      "clever at being deceitful",
+      "reduce, restrict, shorten"
+    ],
+    "correct": 4
+  },
+  {
+    "round": "term-to-definition",
+    "prompt": "What does \"diligent\" mean?",
+    "term": "diligent",
+    "answers": [
+      "loud, energetic",
+      "showing care in doing one's work",
+      "obtainable",
+      "to make something alive; give it energy and spirit"
+    ],
+    "correct": 2
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"hold back\"?",
+    "term": "abstain",
+    "answers": [
+      "accede",
+      "curtail",
+      "abstain",
+      "animate"
+    ],
+    "correct": 3
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"to agree to a request or demand\"?",
+    "term": "accede",
+    "answers": [
+      "accede",
+      "abstain",
+      "accessible",
+      "cordial"
+    ],
+    "correct": 1
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"obtainable\"?",
+    "term": "accessible",
+    "answers": [
+      "affluent",
+      "accede",
+      "diligent",
+      "accessible"
+    ],
+    "correct": 4
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"having a large amount of money or wealth\"?",
+    "term": "affluent",
+    "answers": [
+      "accessible",
+      "affluent",
+      "boisterous",
+      "cordial"
+    ],
+    "correct": 2
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"to make something alive; give it energy and spirit\"?",
+    "term": "animate",
+    "answers": [
+      "animate",
+      "abstain",
+      "cunning",
+      "curtail"
+    ],
+    "correct": 1
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"loud, energetic\"?",
+    "term": "boisterous",
+    "answers": [
+      "cordial",
+      "diligent",
+      "boisterous",
+      "affluent"
+    ],
+    "correct": 3
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"affectionate, politely warm\"?",
+    "term": "cordial",
+    "answers": [
+      "cunning",
+      "cordial",
+      "boisterous",
+      "accessible"
+    ],
+    "correct": 2
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"clever at being deceitful\"?",
+    "term": "cunning",
+    "answers": [
+      "cordial",
+      "diligent",
+      "animate",
+      "cunning"
+    ],
+    "correct": 4
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"reduce, restrict, shorten\"?",
+    "term": "curtail",
+    "answers": [
+      "accede",
+      "animate",
+      "curtail",
+      "abstain"
+    ],
+    "correct": 3
+  },
+  {
+    "round": "definition-to-term",
+    "prompt": "Which word means \"showing care in doing one's work\"?",
+    "term": "diligent",
+    "answers": [
+      "diligent",
+      "boisterous",
+      "cunning",
+      "affluent"
+    ],
+    "correct": 1
+  }
+];
+
+  var SHAPES = ["▲", "◆", "●", "■"];
+  var TIME_LIMIT = 20;
+  var BEST_KEY = "vocab-buzzer-best";
+
+  var el = {
+    glossary: document.getElementById("glossary"),
+    bestLine: document.getElementById("best-line"),
+    start: document.getElementById("screen-start"),
+    play: document.getElementById("screen-play"),
+    done: document.getElementById("screen-done"),
+    btnStart: document.getElementById("btn-start"),
+    counter: document.getElementById("counter"),
+    roundChip: document.getElementById("round-chip"),
+    score: document.getElementById("score"),
+    clock: document.getElementById("clock"),
+    kicker: document.getElementById("prompt-kicker"),
+    promptText: document.getElementById("prompt-text"),
+    tiles: document.getElementById("tiles"),
+    verdict: document.getElementById("verdict-slot")
+  };
+
+  var state = null;
+  var ticker = null;
+
+  function readBest() {
+    try {
+      var v = parseInt(window.localStorage.getItem(BEST_KEY), 10);
+      return isNaN(v) ? 0 : v;
+    } catch (e) { return 0; }
+  }
+
+  function writeBest(v) {
+    try { window.localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* private mode */ }
+  }
+
+  function shuffle(list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function buildGlossary() {
+    var frag = document.createDocumentFragment();
+    TERMS.forEach(function (t) {
+      var wrap = document.createElement("div");
+      wrap.className = "entry";
+      var dt = document.createElement("dt");
+      dt.textContent = t.term;
+      var dd = document.createElement("dd");
+      dd.textContent = t.definition;
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      frag.appendChild(wrap);
+    });
+    el.glossary.appendChild(frag);
+
+    var best = readBest();
+    if (best > 0) {
+      el.bestLine.textContent = "best so far · " + best.toLocaleString() + " pts";
+      el.bestLine.hidden = false;
+    }
+  }
+
+  function startRun(subset) {
+    var questions = subset && subset.length ? subset : BANK;
+    // Keep round 1 before round 2, but vary the order inside each round.
+    var r1 = shuffle(questions.filter(function (q) { return q.round === "term-to-definition"; }));
+    var r2 = shuffle(questions.filter(function (q) { return q.round === "definition-to-term"; }));
+    state = {
+      queue: r1.concat(r2),
+      index: 0,
+      score: 0,
+      right: 0,
+      missed: [],
+      locked: false,
+      remaining: TIME_LIMIT
+    };
+    el.start.hidden = true;
+    el.done.hidden = true;
+    el.play.hidden = false;
+    el.score.textContent = "0";
+    renderQuestion();
+  }
+
+  function currentQuestion() { return state.queue[state.index]; }
+
+  function renderQuestion() {
+    var q = currentQuestion();
+    state.locked = false;
+    state.remaining = TIME_LIMIT;
+
+    el.counter.textContent = "Question " + (state.index + 1) + " of " + state.queue.length;
+    var flipped = q.round === "definition-to-term";
+    el.roundChip.textContent = flipped ? "meaning → word" : "word → meaning";
+    el.kicker.textContent = flipped ? "Pick the word" : "Pick the meaning";
+    el.promptText.textContent = q.prompt;
+    el.verdict.innerHTML = "";
+
+    el.tiles.innerHTML = "";
+    q.answers.forEach(function (answer, i) {
+      var btn = document.createElement("button");
+      btn.className = "tile";
+      btn.type = "button";
+      btn.dataset.slot = String(i + 1);
+      var glyph = document.createElement("span");
+      glyph.className = "glyph";
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = SHAPES[i];
+      var label = document.createElement("span");
+      label.textContent = answer;
+      btn.appendChild(glyph);
+      btn.appendChild(label);
+      btn.addEventListener("click", function () { answerWith(i + 1); });
+      el.tiles.appendChild(btn);
+    });
+
+    el.clock.className = "clock-fill";
+    el.clock.style.width = "100%";
+    clearInterval(ticker);
+    ticker = setInterval(tick, 100);
+  }
+
+  function tick() {
+    state.remaining -= 0.1;
+    if (state.remaining <= 0) {
+      state.remaining = 0;
+      answerWith(null);
+      return;
+    }
+    var pct = (state.remaining / TIME_LIMIT) * 100;
+    el.clock.style.width = pct + "%";
+    el.clock.className = "clock-fill" + (pct < 25 ? " danger" : pct < 55 ? " warn" : "");
+  }
+
+  function answerWith(slot) {
+    if (state.locked) { return; }
+    state.locked = true;
+    clearInterval(ticker);
+
+    var q = currentQuestion();
+    var correct = slot === q.correct;
+    var earned = 0;
+
+    if (correct) {
+      earned = Math.round(500 + 500 * (state.remaining / TIME_LIMIT));
+      state.score += earned;
+      state.right += 1;
+      el.score.textContent = state.score.toLocaleString();
+    } else {
+      state.missed.push(q);
+    }
+
+    Array.prototype.forEach.call(el.tiles.children, function (tile, i) {
+      tile.disabled = true;
+      var n = i + 1;
+      if (n === q.correct) { tile.classList.add("is-answer"); }
+      else if (n === slot) { tile.classList.add("picked-wrong"); }
+      else { tile.classList.add("dim"); }
+    });
+
+    showVerdict(correct, slot === null, earned, q);
+  }
+
+  function showVerdict(correct, timedOut, earned, q) {
+    var def = TERMS.filter(function (t) { return t.term === q.term; })[0];
+    var box = document.createElement("div");
+    box.className = "verdict " + (correct ? "good" : "bad");
+
+    var body = document.createElement("div");
+    body.className = "verdict-body";
+
+    var title = document.createElement("p");
+    title.className = "verdict-title";
+    title.style.margin = "0";
+    title.textContent = correct
+      ? "Correct · +" + earned.toLocaleString()
+      : (timedOut ? "Out of time" : "Not quite");
+
+    var fact = document.createElement("p");
+    fact.className = "verdict-fact";
+    fact.style.margin = "0";
+    var strong = document.createElement("b");
+    strong.textContent = def.term;
+    fact.appendChild(strong);
+    fact.appendChild(document.createTextNode(" — " + def.definition));
+
+    body.appendChild(title);
+    body.appendChild(fact);
+
+    var next = document.createElement("button");
+    next.className = "btn-primary";
+    next.type = "button";
+    next.textContent = state.index + 1 < state.queue.length ? "Next question" : "See results";
+    next.addEventListener("click", advance);
+
+    box.appendChild(body);
+    box.appendChild(next);
+    el.verdict.appendChild(box);
+    next.focus();
+  }
+
+  function advance() {
+    state.index += 1;
+    if (state.index >= state.queue.length) { finish(); return; }
+    renderQuestion();
+  }
+
+  function finish() {
+    clearInterval(ticker);
+    el.play.hidden = true;
+    el.done.hidden = false;
+
+    var total = state.queue.length;
+    var best = readBest();
+    var isBest = state.score > best;
+    if (isBest) { writeBest(state.score); }
+
+    // Which words tripped you up, counted across both directions.
+    var byTerm = {};
+    state.missed.forEach(function (q) { byTerm[q.term] = (byTerm[q.term] || 0) + 1; });
+    var weakTerms = Object.keys(byTerm).sort();
+
+    el.done.innerHTML = "";
+    var card = document.createElement("div");
+    card.className = "final";
+
+    var kicker = document.createElement("p");
+    kicker.className = "eyebrow";
+    kicker.textContent = isBest ? "New personal best" : "Round complete";
+
+    var h = document.createElement("h2");
+    h.textContent = state.right === total
+      ? "Clean sweep — all " + total + " right."
+      : state.right + " of " + total + " right.";
+
+    var tally = document.createElement("div");
+    tally.className = "tally";
+    [["score", state.score.toLocaleString()],
+     ["accuracy", Math.round((state.right / total) * 100) + "%"],
+     ["words to review", String(weakTerms.length)]].forEach(function (pair) {
+      var d = document.createElement("div");
+      var lab = document.createElement("p");
+      lab.className = "eyebrow";
+      lab.style.margin = "0";
+      lab.textContent = pair[0];
+      var val = document.createElement("b");
+      val.textContent = pair[1];
+      d.appendChild(lab);
+      d.appendChild(val);
+      tally.appendChild(d);
+    });
+
+    card.appendChild(kicker);
+    card.appendChild(h);
+    card.appendChild(tally);
+
+    if (weakTerms.length) {
+      var lab = document.createElement("p");
+      lab.className = "eyebrow";
+      lab.style.margin = "0";
+      lab.textContent = "Study these again";
+      var list = document.createElement("div");
+      list.className = "missed";
+      weakTerms.forEach(function (term) {
+        var def = TERMS.filter(function (t) { return t.term === term; })[0];
+        var row = document.createElement("div");
+        row.className = "missed-row";
+        var b = document.createElement("b");
+        b.textContent = def.term;
+        var s = document.createElement("span");
+        s.textContent = def.definition;
+        var tick = document.createElement("span");
+        tick.className = "tick";
+        tick.textContent = byTerm[term] === 2 ? "missed both ways" : "missed once";
+        row.appendChild(b);
+        row.appendChild(s);
+        row.appendChild(tick);
+        list.appendChild(row);
+      });
+      card.appendChild(lab);
+      card.appendChild(list);
+    }
+
+    var actions = document.createElement("div");
+    actions.className = "row";
+
+    if (weakTerms.length) {
+      var drill = document.createElement("button");
+      drill.className = "btn-primary";
+      drill.type = "button";
+      drill.textContent = "Drill the " + weakTerms.length + " I missed";
+      drill.addEventListener("click", function () {
+        startRun(BANK.filter(function (q) { return weakTerms.indexOf(q.term) !== -1; }));
+      });
+      actions.appendChild(drill);
+    }
+
+    var again = document.createElement("button");
+    again.className = weakTerms.length ? "btn-quiet" : "btn-primary";
+    again.type = "button";
+    again.textContent = "Run all 20 again";
+    again.addEventListener("click", function () { startRun(null); });
+    actions.appendChild(again);
+
+    var back = document.createElement("button");
+    back.className = "btn-quiet";
+    back.type = "button";
+    back.textContent = "Back to the word list";
+    back.addEventListener("click", function () {
+      el.done.hidden = true;
+      el.start.hidden = false;
+      var b = readBest();
+      if (b > 0) {
+        el.bestLine.textContent = "best so far · " + b.toLocaleString() + " pts";
+        el.bestLine.hidden = false;
+      }
+    });
+    actions.appendChild(back);
+
+    card.appendChild(actions);
+    el.done.appendChild(card);
+    card.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (el.play.hidden) { return; }
+    if (e.key >= "1" && e.key <= "4" && !state.locked) {
+      e.preventDefault();
+      var slot = parseInt(e.key, 10);
+      if (slot <= el.tiles.children.length) { answerWith(slot); }
+    } else if ((e.key === "Enter" || e.key === " ") && state.locked) {
+      var btn = el.verdict.querySelector("button");
+      if (btn) { e.preventDefault(); btn.click(); }
+    }
+  });
+
+  el.btnStart.addEventListener("click", function () { startRun(null); });
+  buildGlossary();
+})();
+</script>
