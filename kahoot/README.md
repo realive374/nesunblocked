@@ -7,7 +7,7 @@ out — only the term and the definition are drilled.
 | File | What it is |
 | --- | --- |
 | `vocab.json` | The ten terms and definitions. Source of truth for everything else. |
-| `questions.py` | Builds the 20-question bank: 10 word→meaning, 10 meaning→word. |
+| `questions.py` | Builds the 10-question bank: each word asked for its meaning. |
 | `build_kahoot_import.py` → `Kahoot-Vocab-Quiz-Import.xlsx` | Kahoot bulk-import spreadsheet. |
 | `build_study_page.py` + `study_page_template.html` → `vocab-buzzer.html` | Playable quiz page. |
 
@@ -16,6 +16,9 @@ out — only the term and the definition are drilled.
 1. Sign in at kahoot.com and choose **Create → Kahoot**.
 2. Click **Import spreadsheet** and upload `Kahoot-Vocab-Quiz-Import.xlsx`.
 3. Kahoot reads columns A–G starting at row 9; rows 1–8 are instructions and headers.
+
+All ten questions read "What does X mean?" and offer four definitions — the correct one
+plus three belonging to other words on the list.
 
 ## Rebuilding after editing the words
 

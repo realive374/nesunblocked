@@ -225,19 +225,6 @@
     color: var(--muted);
   }
 
-  .chip {
-    font-family: var(--data);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--hairline);
-    background: var(--surface);
-    color: var(--muted);
-  }
-
   .score {
     font-family: var(--display);
     font-weight: 800;
@@ -443,16 +430,6 @@
 
   .missed-row span { color: var(--muted); font-size: 15px; }
 
-  .tick {
-    font-family: var(--data);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    color: var(--muted);
-    margin-left: auto;
-    white-space: nowrap;
-  }
-
   footer {
     color: var(--muted);
     font-size: 13px;
@@ -474,11 +451,12 @@
 
 <div class="shell">
   <header class="masthead">
-    <p class="eyebrow">10 words &middot; 20 questions &middot; both directions</p>
+    <p class="eyebrow">10 words &middot; 10 questions &middot; one meaning each</p>
     <h1>Vocab Buzzer</h1>
     <div class="rule"></div>
-    <p class="lede">Round one shows the word and asks for the meaning. Round two flips it and
-      asks for the word. Answer fast &mdash; the clock is worth as much as being right.</p>
+    <p class="lede">Every question shows a word and asks what it means. The three wrong
+      choices are always other words from this same list, so the only way through is knowing
+      them. Answer fast &mdash; the clock is worth as much as being right.</p>
   </header>
 
   <!-- START -->
@@ -497,15 +475,12 @@
   <!-- PLAY -->
   <section id="screen-play" hidden>
     <div class="scoreboard">
-      <div class="row">
-        <span class="counter" id="counter">Question 1 of 20</span>
-        <span class="chip" id="round-chip">word &rarr; meaning</span>
-      </div>
+      <span class="counter" id="counter">Question 1 of 10</span>
       <div class="score"><span>score</span><b id="score">0</b></div>
     </div>
     <div class="clock-track"><div class="clock-fill" id="clock"></div></div>
     <div class="prompt">
-      <p class="eyebrow" id="prompt-kicker">Pick the meaning</p>
+      <p class="eyebrow">Pick the meaning</p>
       <h2 id="prompt-text">&nbsp;</h2>
     </div>
     <div class="tiles" id="tiles"></div>
@@ -517,7 +492,7 @@
 
   <footer>
     Words and definitions transcribed from the LINCS worksheets. Part of speech, synonyms,
-    sentences and drawings were left out on purpose &mdash; this drills the two things a test asks for.
+    sentences and drawings were left out on purpose &mdash; this drills the word and its meaning, nothing else.
   </footer>
 </div>
 
@@ -569,7 +544,6 @@
 ];
   var BANK = [
   {
-    "round": "term-to-definition",
     "prompt": "What does \"abstain\" mean?",
     "term": "abstain",
     "answers": [
@@ -581,7 +555,6 @@
     "correct": 2
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"accede\" mean?",
     "term": "accede",
     "answers": [
@@ -593,7 +566,6 @@
     "correct": 4
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"accessible\" mean?",
     "term": "accessible",
     "answers": [
@@ -605,7 +577,6 @@
     "correct": 1
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"affluent\" mean?",
     "term": "affluent",
     "answers": [
@@ -617,7 +588,6 @@
     "correct": 3
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"animate\" mean?",
     "term": "animate",
     "answers": [
@@ -629,7 +599,6 @@
     "correct": 2
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"boisterous\" mean?",
     "term": "boisterous",
     "answers": [
@@ -641,7 +610,6 @@
     "correct": 4
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"cordial\" mean?",
     "term": "cordial",
     "answers": [
@@ -653,7 +621,6 @@
     "correct": 1
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"cunning\" mean?",
     "term": "cunning",
     "answers": [
@@ -665,7 +632,6 @@
     "correct": 3
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"curtail\" mean?",
     "term": "curtail",
     "answers": [
@@ -677,7 +643,6 @@
     "correct": 4
   },
   {
-    "round": "term-to-definition",
     "prompt": "What does \"diligent\" mean?",
     "term": "diligent",
     "answers": [
@@ -687,126 +652,6 @@
       "to make something alive; give it energy and spirit"
     ],
     "correct": 2
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"hold back\"?",
-    "term": "abstain",
-    "answers": [
-      "accede",
-      "curtail",
-      "abstain",
-      "animate"
-    ],
-    "correct": 3
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"to agree to a request or demand\"?",
-    "term": "accede",
-    "answers": [
-      "accede",
-      "abstain",
-      "accessible",
-      "cordial"
-    ],
-    "correct": 1
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"obtainable\"?",
-    "term": "accessible",
-    "answers": [
-      "affluent",
-      "accede",
-      "diligent",
-      "accessible"
-    ],
-    "correct": 4
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"having a large amount of money or wealth\"?",
-    "term": "affluent",
-    "answers": [
-      "accessible",
-      "affluent",
-      "boisterous",
-      "cordial"
-    ],
-    "correct": 2
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"to make something alive; give it energy and spirit\"?",
-    "term": "animate",
-    "answers": [
-      "animate",
-      "abstain",
-      "cunning",
-      "curtail"
-    ],
-    "correct": 1
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"loud, energetic\"?",
-    "term": "boisterous",
-    "answers": [
-      "cordial",
-      "diligent",
-      "boisterous",
-      "affluent"
-    ],
-    "correct": 3
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"affectionate, politely warm\"?",
-    "term": "cordial",
-    "answers": [
-      "cunning",
-      "cordial",
-      "boisterous",
-      "accessible"
-    ],
-    "correct": 2
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"clever at being deceitful\"?",
-    "term": "cunning",
-    "answers": [
-      "cordial",
-      "diligent",
-      "animate",
-      "cunning"
-    ],
-    "correct": 4
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"reduce, restrict, shorten\"?",
-    "term": "curtail",
-    "answers": [
-      "accede",
-      "animate",
-      "curtail",
-      "abstain"
-    ],
-    "correct": 3
-  },
-  {
-    "round": "definition-to-term",
-    "prompt": "Which word means \"showing care in doing one's work\"?",
-    "term": "diligent",
-    "answers": [
-      "diligent",
-      "boisterous",
-      "cunning",
-      "affluent"
-    ],
-    "correct": 1
   }
 ];
 
@@ -822,10 +667,8 @@
     done: document.getElementById("screen-done"),
     btnStart: document.getElementById("btn-start"),
     counter: document.getElementById("counter"),
-    roundChip: document.getElementById("round-chip"),
     score: document.getElementById("score"),
     clock: document.getElementById("clock"),
-    kicker: document.getElementById("prompt-kicker"),
     promptText: document.getElementById("prompt-text"),
     tiles: document.getElementById("tiles"),
     verdict: document.getElementById("verdict-slot")
@@ -878,11 +721,8 @@
 
   function startRun(subset) {
     var questions = subset && subset.length ? subset : BANK;
-    // Keep round 1 before round 2, but vary the order inside each round.
-    var r1 = shuffle(questions.filter(function (q) { return q.round === "term-to-definition"; }));
-    var r2 = shuffle(questions.filter(function (q) { return q.round === "definition-to-term"; }));
     state = {
-      queue: r1.concat(r2),
+      queue: shuffle(questions),
       index: 0,
       score: 0,
       right: 0,
@@ -905,9 +745,6 @@
     state.remaining = TIME_LIMIT;
 
     el.counter.textContent = "Question " + (state.index + 1) + " of " + state.queue.length;
-    var flipped = q.round === "definition-to-term";
-    el.roundChip.textContent = flipped ? "meaning → word" : "word → meaning";
-    el.kicker.textContent = flipped ? "Pick the word" : "Pick the meaning";
     el.promptText.textContent = q.prompt;
     el.verdict.innerHTML = "";
 
@@ -1030,10 +867,7 @@
     var isBest = state.score > best;
     if (isBest) { writeBest(state.score); }
 
-    // Which words tripped you up, counted across both directions.
-    var byTerm = {};
-    state.missed.forEach(function (q) { byTerm[q.term] = (byTerm[q.term] || 0) + 1; });
-    var weakTerms = Object.keys(byTerm).sort();
+    var weakTerms = state.missed.map(function (q) { return q.term; }).sort();
 
     el.done.innerHTML = "";
     var card = document.createElement("div");
@@ -1084,12 +918,8 @@
         b.textContent = def.term;
         var s = document.createElement("span");
         s.textContent = def.definition;
-        var tick = document.createElement("span");
-        tick.className = "tick";
-        tick.textContent = byTerm[term] === 2 ? "missed both ways" : "missed once";
         row.appendChild(b);
         row.appendChild(s);
-        row.appendChild(tick);
         list.appendChild(row);
       });
       card.appendChild(lab);
@@ -1113,7 +943,7 @@
     var again = document.createElement("button");
     again.className = weakTerms.length ? "btn-quiet" : "btn-primary";
     again.type = "button";
-    again.textContent = "Run all 20 again";
+    again.textContent = "Run all " + BANK.length + " again";
     again.addEventListener("click", function () { startRun(null); });
     actions.appendChild(again);
 

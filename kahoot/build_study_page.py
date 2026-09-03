@@ -13,7 +13,7 @@ with open(TEMPLATE) as f:
 
 terms = json.dumps(VOCAB["terms"], indent=2)
 bank = json.dumps(
-    [{k: q[k] for k in ("round", "prompt", "term", "answers", "correct")} for q in build()],
+    [{k: q[k] for k in ("prompt", "term", "answers", "correct")} for q in build()],
     indent=2,
 )
 

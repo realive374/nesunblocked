@@ -44,7 +44,6 @@ HEADER_FONT = Font(name="Arial", size=10, bold=True, color="FFFFFF")
 HEADER_FILL = PatternFill("solid", fgColor="46178F")   # Kahoot purple
 TITLE_FONT = Font(name="Arial", size=14, bold=True, color="46178F")
 NOTE_FONT = Font(name="Arial", size=10, italic=True, color="595959")
-ROUND_FILL = PatternFill("solid", fgColor="F2EDFB")
 
 wb = Workbook()
 ws = wb.active
@@ -70,18 +69,14 @@ for offset, q in enumerate(bank):
         cell = ws.cell(row=row, column=col, value=value)
         cell.font = BLUE if col <= 5 else BLACK
         cell.alignment = Alignment(wrap_text=True, vertical="top")
-    if q["round"] == "definition-to-term":
-        for col in range(1, len(HEADERS) + 1):
-            ws.cell(row=row, column=col).fill = ROUND_FILL
     ws.row_dimensions[row].height = 30
 
 note_row = FIRST_QUESTION_ROW + len(bank) + 1
 note = ws.cell(row=note_row, column=1, value=(
-    "Rows %d-%d ask term to definition; the shaded rows %d-%d ask definition to term. "
-    "Blue text = the text Kahoot shows players. Words and definitions transcribed from the "
-    "LINCS worksheets; part of speech, synonyms, sentences and pictures were left out on request."
-    % (FIRST_QUESTION_ROW, FIRST_QUESTION_ROW + 9,
-       FIRST_QUESTION_ROW + 10, FIRST_QUESTION_ROW + 19)))
+    "Rows %d-%d each show a word and ask for its meaning. Blue text = the text Kahoot shows "
+    "players. Words and definitions transcribed from the LINCS worksheets; part of speech, "
+    "synonyms, sentences and pictures were left out on request."
+    % (FIRST_QUESTION_ROW, FIRST_QUESTION_ROW + len(bank) - 1)))
 note.font = NOTE_FONT
 
 widths = [46, 30, 30, 30, 30, 14, 14]
