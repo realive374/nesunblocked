@@ -4977,7 +4977,7 @@ lib("DAISY",
 "       PZE   300,,3",
 "       PZE   PFAOR",
 "       BCI   1,FOR   ",
-"       PZE   1200,,3",
+"       PZE   1800,,3      A FULL BAR, SO THE CHORUS IS TWELVE BARS EXACTLY",
 "       PZE   PTUW",
 "       BCI   1,TWO   ",
 "       END   BEGIN"
@@ -5538,10 +5538,10 @@ function scheduleSyllable(s, syl, isLast){
   /* the last note is released with the pitch sagging, the way a singer out of
      breath does -- and the way the 1961 recording famously does */
   if(isLast){
-    fp.setValueAtTime(f0, t + total * 0.55);
-    fp.linearRampToValueAtTime(f0 * 0.90, t + total);
-    fp2.setValueAtTime(f0, t + total * 0.55);
-    fp2.linearRampToValueAtTime(f0 * 0.90, t + total);
+    fp.setValueAtTime(f0, t + total * 0.72);
+    fp.linearRampToValueAtTime(f0 * 0.965, t + total);   /* about two thirds of a semitone */
+    fp2.setValueAtTime(f0, t + total * 0.72);
+    fp2.linearRampToValueAtTime(f0 * 0.965, t + total);
   }
 
   syl.events = [];
@@ -5633,21 +5633,53 @@ function scheduleSyllable(s, syl, isLast){
    16.6  THE ACCOMPANIMENT
    -------------------------------------------------------------------------
    Max Mathews wrote the original.  This is a plain three-voice waltz
-   harmonisation: a bass note on the first beat and the chord on the second
-   and third, in the manner of a MUSIC III tone -- clean, a little sterile,
-   and charming.
+   harmonisation: the bass alone on the first beat of the bar and the chord on
+   the other two, in the manner of a MUSIC III tone -- clean, a little
+   sterile, and charming.
+
+   The chords are indexed by BEAT OF THE CHORUS, not by bar, and the singer's
+   syllable lengths are counted in the same beats, so the two cannot drift
+   apart.  Daisy Bell is a plain I-IV-V7 tune and every change below was
+   placed against the melody note sounding underneath it: each one lands on a
+   chord tone, and the only notes that are not chord tones are sixths and
+   ninths or half-beat passing notes.  Getting this wrong is what makes a
+   harmonisation sound out of key even when every note in it is diatonic.
+
+   The voicings sit just below the melody, which runs from G2 up to A3, and
+   they move by step: C is G2-C3-E3, F is A2-C3-F3, G7 is B2-D3-F3.
    ------------------------------------------------------------------------- */
 
 const BEAT = 0.6;                 /* 100 beats a minute */
 const BAR  = BEAT * 3;            /* three four time */
 const CH = {
-  C:  [130.81, 164.81, 196.00, 65.41],
-  F:  [174.61, 220.00, 261.63, 87.31],
-  G7: [146.83, 174.61, 196.00, 98.00]
+  C:  { bass: 65.41, triad: [ 98.00, 130.81, 164.81] },   /* C2 ; G2 C3 E3 */
+  F:  { bass: 87.31, triad: [110.00, 130.81, 174.61] },   /* F2 ; A2 C3 F3 */
+  G7: { bass: 98.00, triad: [123.47, 146.83, 174.61] }    /* G2 ; B2 D3 F3 */
 };
-const CHART = ["C","C","G7","G7","C","C","F","C","G7","C","G7","C"];
-var INTRO = ["C","G7"];
-const OUTRO = ["C","C"];
+/* beat of the chorus -> chord from that beat on */
+const CHART = [
+  [ 0,    "C"],   /* Dai-sy, Dai-sy, give me your an-        */
+  [ 5,    "G7"],  /* -swer                                   */
+  [ 6,    "C"],   /* do.  I'm half cra-zy, all for the love  */
+  [13,    "G7"],  /* of                                      */
+  [13.5,  "C"],   /* you.  It won't                          */
+  [16,    "F"],   /* be a                                    */
+  [17,    "C"],   /* sty-lish mar-                           */
+  [20,    "G7"],  /* -riage, I can't                         */
+  [22,    "C"],   /* af-ford a                               */
+  [23,    "G7"],  /* car-                                    */
+  [24,    "C"],   /* -riage, but you'll look sweet upon the seat */
+  [30,    "G7"],  /* of a bi-cy-cle built for                */
+  [33,    "C"]    /* two.                                    */
+];
+const SONGBEATS = 36;             /* twelve bars of three four */
+function chordAtBeat(b){
+  var name = CHART[0][1], i;
+  for(i = 0; i < CHART.length; i++){
+    if(CHART[i][0] <= b) name = CHART[i][1]; else break;
+  }
+  return name;
+}
 
 function pluck(t, freq, dur, gain){
   if(!audioAvailable()) return;
@@ -5664,23 +5696,33 @@ function pluck(t, freq, dur, gain){
   accompNodes.push(o);
 }
 var accompNodes = [];
-function playBar(t, name){
-  var c = CH[name];
+/* One beat of the waltz: the bass alone on the first beat of the bar, the
+   chord on the other two, and an extra bass note wherever the harmony moves
+   so that the change is heard. */
+function playBeat(t, name, downbeat, change){
+  var c = CH[name], k;
   if(!c) return;
-  pluck(t, c[3], 0.9, 0.30);                       /* the bass, on one */
-  pluck(t + BEAT, c[0], 0.55, 0.13);
-  pluck(t + BEAT, c[1], 0.55, 0.11);
-  pluck(t + BEAT, c[2], 0.55, 0.09);
-  pluck(t + BEAT * 2, c[0], 0.55, 0.11);
-  pluck(t + BEAT * 2, c[1], 0.55, 0.09);
-  pluck(t + BEAT * 2, c[2], 0.55, 0.08);
+  if(downbeat || change) pluck(t, c.bass, 0.9, downbeat ? 0.30 : 0.20);
+  if(!downbeat) for(k = 0; k < c.triad.length; k++) pluck(t, c.triad[k], 0.55, 0.12 - k * 0.015);
 }
-function scheduleAccompaniment(t0){
-  var i, t = t0;
-  for(i = 0; i < INTRO.length; i++){ playBar(t, INTRO[i]); t += BAR; }
-  for(i = 0; i < CHART.length; i++){ playBar(t, CHART[i]); t += BAR; }
-  for(i = 0; i < OUTRO.length; i++){ playBar(t, OUTRO[i]); t += BAR; }
-  return t - t0;
+function scheduleAccompaniment(t0, introBars){
+  var i, b, name, prev = null, songT = t0 + introBars * BAR;
+  /* the introduction vamps I and V7 while the card deck reads in, and always
+     ends on the dominant so that the singer has a pitch to come in on */
+  for(i = 0; i < introBars * 3; i++){
+    name = (Math.floor(i / 3) === introBars - 1) ? "G7"
+         : ((Math.floor(i / 3) % 2 === 0) ? "C" : "G7");
+    playBeat(t0 + i * BEAT, name, i % 3 === 0, false);
+  }
+  for(b = 0; b < SONGBEATS; b++){
+    name = chordAtBeat(b);
+    playBeat(songT + b * BEAT, name, b % 3 === 0, name !== prev);
+    prev = name;
+  }
+  for(i = 0; i < 6; i++){                           /* a two-bar tag: V7 then I */
+    playBeat(songT + (SONGBEATS + i) * BEAT, i < 3 ? "G7" : "C", i % 3 === 0, i === 0 || i === 3);
+  }
+  return (introBars * 3 + SONGBEATS + 6) * BEAT;
 }
 function stopAccompaniment(){
   var i;
@@ -5760,7 +5802,7 @@ function serviceVocal(){
   }
 }
 
-function vocalBegin(introSeconds){
+function vocalBegin(introBars){
   ensureAudio();
   if(!audioAvailable()) return false;
   singer = buildSinger();
@@ -5769,9 +5811,9 @@ function vocalBegin(introSeconds){
   accompGain.gain.setValueAtTime(perf.accompOn ? 0.355 : 0, AC.currentTime);
   perf.active = true; perf.frames = []; perf.cur = null; perf.pending = false;
   perf.endFlag = false; perf.ended = false; perf.events = []; perf.sylQueue = [];
-  perf.songStart = AC.currentTime + introSeconds;
+  perf.songStart = AC.currentTime + introBars * BAR;
   perf.schedTime = perf.songStart;
-  perf.total = scheduleAccompaniment(AC.currentTime);
+  perf.total = scheduleAccompaniment(AC.currentTime, introBars);
   perf.finishedAt = AC.currentTime + perf.total;
   return true;
 }
@@ -7162,10 +7204,8 @@ function startDaisy(){
 
   var loadSeconds = deck.length * (reader.cardUs / 1e6) / reader.speedup + 0.5;
   var introBars = Math.max(2, Math.ceil(loadSeconds / BAR));
-  INTRO = [];
-  for(var i = 0; i < introBars; i++) INTRO.push(i % 2 === 0 ? "C" : "G7");
 
-  if(!vocalBegin(introBars * BAR)){
+  if(!vocalBegin(introBars)){
     say("AUDIO IS NOT AVAILABLE; RUNNING THE PROGRAM WITHOUT SOUND.", "warn");
     perf.active = false;
   }
