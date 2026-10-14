@@ -42,6 +42,13 @@ void draw_noise_slider(Framebuffer& fb, float level) {
     centered(fb, y, bar, Gpu::kOsdGreen);
 }
 
+void draw_insert_hint(Framebuffer& fb, uint64_t frame) {
+    if ((frame / 45) % 4 == 3) return;  // blink slowly, like a VCR prompt
+    blend_rect(fb, 0, fb.h - 64, fb.w, 40, 0xFF000000u, 150);
+    centered(fb, fb.h - 58, "INSERT A TAPE:", Gpu::kOsdWhite);
+    centered(fb, fb.h - 44, "DRAG A MOVIE HERE OR PRESS SPACE", Gpu::kOsdGreen);
+}
+
 void draw_recording_screen(Framebuffer& fb, const std::string& title, float progress, uint64_t frame) {
     progress = std::clamp(progress, 0.0f, 1.0f);
     fb.fill(rgb(8, 8, 12));

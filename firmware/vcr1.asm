@@ -69,6 +69,7 @@
 .equ M_FF,     5
 .equ L_EJECT,  6
 .equ L_TRACK,  7
+.equ L_NOTAPE, 8
 
 ; ---- timings, in frames (29.97 per second) ---------------------------------------
 .equ T_POWERON_STATIC, 45   ; 1.5 s of snow while the "tube warms up"
@@ -214,7 +215,7 @@ handle_buttons:
 hb_not_power:
     LD A, [V_MODE]
     CMP A, M_NOTAPE
-    JZ hb_done                  ; transport buttons need a tape
+    JZ hb_no_tape               ; transport buttons need a tape
     LD A, B
     AND A, B_EJECT
     JNZ hb_eject
@@ -234,6 +235,16 @@ hb_not_power:
     AND A, B_TRACK
     JNZ hb_track
 hb_done:
+    RET
+
+hb_no_tape:                     ; a transport button without a tape: say so
+    LD A, B
+    AND A, B_PLAY + B_STOP + B_REW + B_FF + B_EJECT
+    JZ hb_done
+    LD A, L_NOTAPE
+    ST [V_LABEL], A
+    LD A, T_OSD_SHORT
+    ST [V_OSD_T], A
     RET
 
 hb_eject:
@@ -431,8 +442,13 @@ lp_eject:
     RET
 lp_track:
     CMP A, L_TRACK
-    JNZ lp_none
+    JNZ lp_notape
     LDX str_track
+    RET
+lp_notape:
+    CMP A, L_NOTAPE
+    JNZ lp_none
+    LDX str_notape
     RET
 lp_none:
     LDX str_blank
@@ -494,5 +510,6 @@ str_rew:      .db "REW \x11\x11", 0
 str_ff:       .db "FF \x10\x10", 0
 str_eject:    .db "EJECT \x14", 0
 str_track:    .db "TRACKING", 0
+str_notape:   .db "NO TAPE", 0
 str_nosignal: .db "NO SIGNAL", 0
 str_blank:    .db 0

@@ -52,8 +52,10 @@ const char* const kControlsText =
     "Esc\teject\n"
     "Ctrl+O\topen a video or tape\n"
     "I\tinterlaced look\n"
+    "L\tinsert the built-in test tape\n"
     "P\tpower\n\n"
-    "Drag an .mp4 or .vhs file onto the TV to play it.";
+    "Drag an .mp4 or .vhs file onto the TV to play it,\n"
+    "or press Space with no tape in to pick one.";
 
 struct Options {
     long max_frames = -1;               // --frames N: quit after N video frames (smoke tests)
@@ -64,6 +66,7 @@ struct Options {
     bool show_slider = false;           // --slider: open the noise slider at start
     bool debug = false;                 // --debug: start with the F1 overlay
     std::string open;                   // file to insert at start (drop onto the .exe)
+    std::string renderer;               // --renderer NAME: try this SDL renderer first
 };
 
 Options parse_args(int argc, char** argv) {
@@ -76,6 +79,7 @@ Options parse_args(int argc, char** argv) {
         else if (!std::strcmp(a, "--noise") && i + 1 < argc) o.noise = std::strtof(argv[++i], nullptr) / 100.0f;
         else if (!std::strcmp(a, "--slider")) o.show_slider = true;
         else if (!std::strcmp(a, "--debug")) o.debug = true;
+        else if (!std::strcmp(a, "--renderer") && i + 1 < argc) o.renderer = argv[++i];
         else if (!std::strcmp(a, "--shot") && i + 1 < argc) {
             const std::string s = argv[++i];
             const size_t colon = s.find(':');
@@ -127,6 +131,10 @@ public:
 private:
     enum class Mode { Tv, Recording, NotRecognized };
 
+    bool setup_renderer();
+    bool try_renderer(const std::string& name);
+    bool create_texture();
+    void destroy_renderer();
     void handle_event(const SDL_Event& ev);
     void handle_menu(int cmd);
     void tap(uint8_t button);
@@ -136,6 +144,7 @@ private:
     void open_dialog();
     void open_path(const std::string& path);
     void insert_vhs(const std::string& path, const std::string& shown_name);
+    void insert_test_tape();
     void show_not_recognized(const std::string& name, const std::string& reason);
     void update_recording();
     void update_title();
@@ -178,18 +187,12 @@ bool App::init() {
     }
     window_ = SDL_CreateWindow("RetroTube 90", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, kCanvasW, kCanvasH,
                                SDL_WINDOW_RESIZABLE);
-    if (window_) renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer_ && window_) renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
-    if (renderer_)
-        texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, kCanvasW,
-                                     kCanvasH);
-    if (!texture_) {
+    if (!window_ || !setup_renderer()) {
         log_error("SDL window/renderer setup failed: %s", SDL_GetError());
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RetroTube 90", "Could not open a video output.", window_);
         return false;
     }
     SDL_SetWindowMinimumSize(window_, kScreenW, kScreenH);
-    SDL_SetTextureScaleMode(texture_, SDL_ScaleModeLinear);
-    SDL_RenderSetLogicalSize(renderer_, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     platform::install_menu(window_);
 
@@ -218,6 +221,80 @@ bool App::init() {
     if (!opt_.open.empty()) open_path(opt_.open);
     log_info("ready (audio %s, importer %s)", audio_dev_ ? "on" : "off", importer_available() ? "on" : "off");
     return true;
+}
+
+// ---- video output ----------------------------------------------------------------
+
+// Tries SDL's renderers in turn (the default - Direct3D on Windows - then
+// OpenGL, then software) and keeps the first one that is verified to really
+// show our pixels. Some graphics drivers accept everything and then display a
+// white or black window; the read-back test catches that.
+bool App::setup_renderer() {
+    std::vector<std::string> order;
+    if (!opt_.renderer.empty()) order.push_back(opt_.renderer);
+    order.insert(order.end(), {"", "opengl", "software"});
+    for (const std::string& name : order) {
+        if (try_renderer(name)) return true;
+        destroy_renderer();
+    }
+    return false;
+}
+
+bool App::create_texture() {
+    if (texture_) SDL_DestroyTexture(texture_);
+    texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, kCanvasW, kCanvasH);
+    if (!texture_) return false;
+    SDL_SetTextureScaleMode(texture_, SDL_ScaleModeLinear);
+    presented_ = ~0ull;  // re-upload the current frame
+    return true;
+}
+
+bool App::try_renderer(const std::string& name) {
+    int index = -1;
+    if (!name.empty()) {
+        for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
+            SDL_RendererInfo info;
+            if (SDL_GetRenderDriverInfo(i, &info) == 0 && name == info.name) index = i;
+        }
+        if (index < 0) return false;
+    }
+    const Uint32 flags = name == "software" ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_PRESENTVSYNC;
+    renderer_ = SDL_CreateRenderer(window_, index, flags);
+    if (!renderer_ || !create_texture()) {
+        log_warn("renderer '%s' unavailable: %s", name.empty() ? "default" : name.c_str(), SDL_GetError());
+        return false;
+    }
+    SDL_RendererInfo info{};
+    SDL_GetRendererInfo(renderer_, &info);
+
+    // Self-test: show a known colour and read it back from the back buffer.
+    canvas_.fill(rgb(0x20, 0x90, 0x40));
+    SDL_UpdateTexture(texture_, nullptr, canvas_.px.data(), kCanvasW * 4);
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
+    SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
+    int w = 0, h = 0;
+    SDL_GetRendererOutputSize(renderer_, &w, &h);
+    SDL_Rect probe{w / 2, h / 2, 1, 1};
+    Uint32 px = 0;
+    const bool read_ok = SDL_RenderReadPixels(renderer_, &probe, SDL_PIXELFORMAT_ARGB8888, &px, 4) == 0;
+    SDL_RenderPresent(renderer_);
+    const bool match = std::abs(red(px) - 0x20) < 24 && std::abs(green(px) - 0x90) < 24 && std::abs(blue(px) - 0x40) < 24;
+    if (read_ok && !match) {
+        log_warn("renderer '%s' failed the display test (read back %06X); trying another", info.name,
+                 static_cast<unsigned>(px & 0xFFFFFF));
+        return false;
+    }
+    SDL_RenderSetLogicalSize(renderer_, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
+    log_info("renderer: %s (%s)", info.name, read_ok ? "display test passed" : "display test not supported");
+    return true;
+}
+
+void App::destroy_renderer() {
+    if (texture_) SDL_DestroyTexture(texture_);
+    if (renderer_) SDL_DestroyRenderer(renderer_);
+    texture_ = nullptr;
+    renderer_ = nullptr;
 }
 
 // ---- input -------------------------------------------------------------------
@@ -269,12 +346,22 @@ void App::handle_menu(int cmd) {
 void App::handle_event(const SDL_Event& ev) {
     if (ev.type == SDL_QUIT) {
         running_ = false;
+    } else if (ev.type == SDL_RENDER_DEVICE_RESET) {
+        // The GPU driver was reset (sleep, display change...): textures are gone.
+        log_warn("render device reset; recreating the screen texture");
+        if (!create_texture()) {
+            destroy_renderer();
+            if (!setup_renderer()) running_ = false;
+        }
+    } else if (ev.type == SDL_RENDER_TARGETS_RESET) {
+        presented_ = ~0ull;
     } else if (ev.type == platform::menu_event_type()) {
         handle_menu(ev.user.code);
     } else if (ev.type == SDL_DROPFILE) {
         if (ev.drop.file) {
             const std::string path = ev.drop.file;
             SDL_free(ev.drop.file);
+            SDL_RaiseWindow(window_);  // take keyboard focus back from Explorer
             open_path(path);
         }
     } else if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
@@ -305,6 +392,10 @@ void App::handle_event(const SDL_Event& ev) {
             change_noise(0.05f);
         } else if (key == SDLK_i) {
             tv_.interlace().enabled = !tv_.interlace().enabled;
+        } else if (key == SDLK_l) {
+            insert_test_tape();
+        } else if (key == SDLK_SPACE && !tv_.has_tape()) {
+            open_dialog();  // nothing to play yet: ask for a tape
         } else if (uint8_t b = key_to_button(key)) {
             tv_.machine().press(b);
         }
@@ -319,7 +410,9 @@ void App::handle_event(const SDL_Event& ev) {
 
 void App::open_dialog() {
     std::string path;
-    if (platform::open_file_dialog(window_, path)) open_path(path);
+    const bool picked = platform::open_file_dialog(window_, path);
+    SDL_RaiseWindow(window_);
+    if (picked) open_path(path);
 }
 
 void App::open_path(const std::string& path) {
@@ -372,6 +465,15 @@ void App::insert_vhs(const std::string& path, const std::string& shown_name) {
     play_at_frame_ = std::max<uint64_t>(tv_.machine().frame() + 26, 40);  // after power-on static
 }
 
+void App::insert_test_tape() {
+    if (mode_ == Mode::Recording) return;
+    if (tv_.machine().frame() > 0 && !tv_.machine().power_led()) tap(io::BTN_POWER);
+    log_info("insert: built-in test tape");
+    tv_.insert_tape(std::make_shared<TestPatternSource>());
+    mode_ = Mode::Tv;
+    play_at_frame_ = std::max<uint64_t>(tv_.machine().frame() + 26, 40);
+}
+
 void App::show_not_recognized(const std::string& name, const std::string& reason) {
     log_warn("not recognized: %s (%s)", name.c_str(), reason.c_str());
     bad_name_ = name;
@@ -394,6 +496,10 @@ void App::draw_overlay(Framebuffer& fb) {
     if (mode_ == Mode::Recording) draw_recording_screen(fb, recording_title_, job_.progress(), frame);
     else if (mode_ == Mode::NotRecognized) draw_not_recognized(fb, bad_name_, bad_reason_);
     if (slider_visible() && mode_ == Mode::Tv) draw_noise_slider(fb, tv_.noise());
+    // Empty deck: once the power-on snow settles, tell the user what to do.
+    if (mode_ == Mode::Tv && !tv_.has_tape() && tv_.machine().power_led() && frame > 50 &&
+        tv_.machine().gpu().screen() == io::SCREEN_STATIC && !slider_visible())
+        draw_insert_hint(fb, frame);
 }
 
 void App::update_title() {
@@ -484,11 +590,8 @@ void App::shutdown() {
     job_.cancel();
     if (audio_dev_) SDL_CloseAudioDevice(audio_dev_);
     audio_dev_ = 0;
-    if (texture_) SDL_DestroyTexture(texture_);
-    if (renderer_) SDL_DestroyRenderer(renderer_);
+    destroy_renderer();
     if (window_) SDL_DestroyWindow(window_);
-    texture_ = nullptr;
-    renderer_ = nullptr;
     window_ = nullptr;
     SDL_Quit();
     log_close();

@@ -177,10 +177,13 @@ TEST(firmware_eject) {
     CHECK_EQ(m.gpu().screen(), SCREEN_STATIC);
     m.run_frames(3 * kSecond);
     CHECK_EQ(m.gpu().screen(), SCREEN_STATIC);  // still no tape
-    // Transport buttons do nothing without a tape.
+    // Transport buttons can't do anything without a tape - the OSD says so.
+    m.run_frames(2 * kSecond);
     m.tap(BTN_PLAY);
     m.run_frames(2);
     CHECK(!osd_has(m, "PLAY"));
+    CHECK(osd_has(m, "NO TAPE"));
+    CHECK(m.deck().state() == DeckState::Empty);
 }
 
 TEST(firmware_tracking_button) {
