@@ -43,6 +43,14 @@ add_library(rt90core STATIC
   src/core/bus.cpp
   src/core/cpu.cpp
   src/core/assembler.cpp
+  src/core/ram.cpp
+  src/core/ring_buffer.cpp
+  src/av/av_sync.cpp
+  src/av/interlace.cpp
+  src/av/static_noise.cpp
+  src/tape/tape_source.cpp
+  src/tape/tape_streamer.cpp
+  src/app/tv_set.cpp
   src/vcr/deck.cpp
   src/vcr/machine.cpp
   src/gpu/gpu_regs.cpp
@@ -87,7 +95,8 @@ if(RT90_BUILD_TESTS)
     tests/test_cpu.cpp
     tests/test_assembler.cpp
     tests/test_firmware.cpp
-    tests/test_gpu.cpp)
+    tests/test_gpu.cpp
+    tests/test_ram_video.cpp)
   target_link_libraries(rt90_tests PRIVATE rt90core rt90_warnings)
   add_test(NAME rt90_tests COMMAND rt90_tests)
 endif()

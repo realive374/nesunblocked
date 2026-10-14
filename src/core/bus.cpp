@@ -11,7 +11,7 @@ uint8_t Bus::read(uint16_t addr) {
         IoDevice* dev = io_[addr & 0xFF];
         return dev ? dev->io_read(static_cast<uint8_t>(addr & 0xFF)) : 0xFF;  // open bus
     }
-    return mem_[addr];
+    return ram_.read(addr);
 }
 
 uint8_t Bus::peek(uint16_t addr) const {
@@ -19,7 +19,7 @@ uint8_t Bus::peek(uint16_t addr) const {
         const IoDevice* dev = io_[addr & 0xFF];
         return dev ? dev->io_peek(static_cast<uint8_t>(addr & 0xFF)) : 0xFF;
     }
-    return mem_[addr];
+    return ram_.read(addr);
 }
 
 void Bus::write(uint16_t addr, uint8_t value) {
@@ -31,20 +31,17 @@ void Bus::write(uint16_t addr, uint8_t value) {
         if (IoDevice* dev = io_[addr & 0xFF]) dev->io_write(static_cast<uint8_t>(addr & 0xFF), value);
         return;
     }
-    mem_[addr] = value;
+    ram_.write(addr, value);
 }
 
 void Bus::load_rom(const std::vector<uint8_t>& image, uint16_t origin) {
-    std::fill(mem_.begin(), mem_.begin() + memmap::ROM_END + 1, uint8_t{0});
-    for (size_t i = 0; i < image.size(); ++i) {
-        size_t addr = origin + i;
-        if (addr > memmap::ROM_END) break;
-        mem_[addr] = image[i];
-    }
+    ram_.clear(memmap::ROM_START, memmap::ROM_END + 1u);
+    const size_t room = origin <= memmap::ROM_END ? memmap::ROM_END + 1u - origin : 0;
+    ram_.load(origin, image.data(), std::min(image.size(), room));
 }
 
 void Bus::clear_ram() {
-    std::fill(mem_.begin() + memmap::RAM_START, mem_.begin() + memmap::IO_START, uint8_t{0});
+    ram_.clear(memmap::RAM_START, memmap::IO_START);
 }
 
 void Bus::map_io(uint8_t first, uint8_t last, IoDevice* dev) {

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -60,6 +61,8 @@ public:
     const GpuRegs& gpu() const { return gpu_; }
 
     uint64_t frame() const { return frame_; }
+    // Called at the end of every vsync, after the GPU latched and the deck moved.
+    void set_vsync_callback(std::function<void()> cb) { on_vsync_ = std::move(cb); }
     bool power_led() const { return panel_.power_led; }
     uint16_t symbol(const std::string& name) const;  // firmware symbol address (0 if unknown)
 
@@ -86,6 +89,7 @@ private:
     uint64_t clock_ = 0;      // cycles run since reset
     double cycle_debt_ = 0;   // fractional cycles owed by advance()
     std::vector<std::pair<std::string, uint16_t>> symbols_;
+    std::function<void()> on_vsync_;
 };
 
 }  // namespace rt90

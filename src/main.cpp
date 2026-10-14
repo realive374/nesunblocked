@@ -1,7 +1,9 @@
 // RetroTube 90 - desktop host.
 //
-// Boots the VCR-1 firmware, ticks the CPU at a fixed 1 MHz clock from the main
-// loop, and shows the GPU's picture through the CRT filter.
+// Owns the SDL window, renderer and audio device and feeds the TvSet: real
+// time goes in (nudged by AvSync so audio and video stay locked), keyboard
+// input becomes front-panel button presses, and every new video frame is run
+// through the CRT filter and shown.
 #include <SDL.h>
 
 #include <cstdio>
@@ -11,11 +13,11 @@
 #include <string>
 #include <vector>
 
-#include "gpu/gpu.h"
-#include "gpu/test_pattern.h"
+#include "app/tv_set.h"
+#include "av/av_sync.h"
+#include "av/timing.h"
 #include "util/image_io.h"
 #include "vcr/io_ports.h"
-#include "vcr/machine.h"
 
 namespace {
 
@@ -25,9 +27,9 @@ constexpr int kCanvasW = kScreenW * 3;  // CRT canvas: 960x720
 constexpr int kCanvasH = kScreenH * 3;
 
 struct Options {
-    long max_frames = -1;      // --frames N: quit after N video frames (smoke tests)
-    bool test_tape = false;    // --test-tape: start with a blank test tape inserted
-    bool autoplay = false;     // --play: press PLAY once the tape is in
+    long max_frames = -1;               // --frames N: quit after N video frames (smoke tests)
+    bool test_tape = false;             // --test-tape: start with a blank test tape inserted
+    bool autoplay = false;              // --play: press PLAY once the tape is in
     std::map<long, std::string> shots;  // --shot FRAME:FILE.png (repeatable)
 };
 
@@ -36,7 +38,7 @@ Options parse_args(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc) o.max_frames = std::strtol(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "--test-tape")) o.test_tape = true;
-        else if (!std::strcmp(argv[i], "--play")) o.autoplay = o.test_tape = true;
+        else if (!std::strcmp(argv[i], "--play")) o.autoplay = true;
         else if (!std::strcmp(argv[i], "--shot") && i + 1 < argc) {
             const std::string a = argv[++i];
             const size_t colon = a.find(':');
@@ -46,15 +48,7 @@ Options parse_args(int argc, char** argv) {
     return o;
 }
 
-TapeInfo blank_test_tape() {
-    TapeInfo t;
-    t.title = "T-120 TEST TAPE";
-    t.fps = Machine::kFps;
-    t.frame_count = static_cast<uint32_t>(2 * 3600 * t.fps);
-    return t;
-}
-
-// OSD glyph codes -> UTF-8 for the window title.
+// OSD glyph codes -> UTF-8 for logs.
 std::string osd_to_utf8(const std::string& s) {
     std::string out;
     for (unsigned char c : s) {
@@ -83,129 +77,181 @@ uint8_t key_to_button(SDL_Keycode key) {
     }
 }
 
-}  // namespace
+class App {
+public:
+    explicit App(const Options& opt) : opt_(opt) {}
+    ~App() { shutdown(); }
 
-int main(int argc, char** argv) {
-    const Options opt = parse_args(argc, argv);
+    bool init();
+    int run();
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+private:
+    void handle_event(const SDL_Event& ev);
+    void pump_audio();
+    void present();
+    void shutdown();
+
+    Options opt_;
+    SDL_Window* window_ = nullptr;
+    SDL_Renderer* renderer_ = nullptr;
+    SDL_Texture* texture_ = nullptr;
+    SDL_AudioDeviceID audio_dev_ = 0;
+    TvSet tv_;
+    AvSync sync_{kAudioRate};
+    Framebuffer canvas_{kCanvasW, kCanvasH};
+    std::vector<int16_t> audio_buf_;
+    uint64_t presented_ = 0;
+    std::string last_osd_;
+    bool fullscreen_ = false;
+    bool running_ = true;
+    bool autoplay_pending_ = false;
+};
+
+bool App::init() {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS) != 0) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
-        return 1;
+        return false;
     }
-    SDL_Window* window = SDL_CreateWindow("RetroTube 90", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                          kCanvasW, kCanvasH, SDL_WINDOW_RESIZABLE);
-    SDL_Renderer* renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC) : nullptr;
-    if (!renderer && window) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-    SDL_Texture* texture = renderer ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                                        SDL_TEXTUREACCESS_STREAMING, kCanvasW, kCanvasH)
-                                    : nullptr;
-    if (!texture) {
+    window_ = SDL_CreateWindow("RetroTube 90", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, kCanvasW, kCanvasH,
+                               SDL_WINDOW_RESIZABLE);
+    if (window_) renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer_ && window_) renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+    if (renderer_)
+        texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, kCanvasW,
+                                     kCanvasH);
+    if (!texture_) {
         std::fprintf(stderr, "SDL window/renderer setup failed: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
+        return false;
     }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    SDL_SetTextureScaleMode(texture, SDL_ScaleModeLinear);
-    SDL_RenderSetLogicalSize(renderer, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
+    SDL_SetTextureScaleMode(texture_, SDL_ScaleModeLinear);
+    SDL_RenderSetLogicalSize(renderer_, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
 
-    Machine machine;
+    SDL_AudioSpec want{}, have{};
+    want.freq = kAudioRate;
+    want.format = AUDIO_S16SYS;
+    want.channels = 1;
+    want.samples = 512;
+    audio_dev_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);  // SDL converts to the device format
+    if (audio_dev_) SDL_PauseAudioDevice(audio_dev_, 0);
+    else std::fprintf(stderr, "No audio device (%s); running silent\n", SDL_GetError());
+
     std::string err;
-    if (!machine.boot_default(&err)) {
+    if (!tv_.boot(&err)) {
         std::fprintf(stderr, "Firmware failed to assemble:\n%s", err.c_str());
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RetroTube 90", err.c_str(), window);
-        SDL_DestroyTexture(texture);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RetroTube 90", err.c_str(), window_);
+        return false;
     }
-    if (opt.test_tape) machine.deck().insert(blank_test_tape());
+    if (opt_.test_tape || opt_.autoplay) tv_.insert_tape(std::make_shared<TestPatternSource>());
+    autoplay_pending_ = opt_.autoplay;
+    return true;
+}
 
-    Gpu gpu;
-    Framebuffer tape_layer(kScreenW, kScreenH);
-    Framebuffer canvas(kCanvasW, kCanvasH);
-    uint64_t composed_frame = ~0ull;
-    std::string last_title;
-    bool fullscreen = false;
-    bool running = true;
-    bool autoplay_pending = opt.autoplay;
+void App::handle_event(const SDL_Event& ev) {
+    if (ev.type == SDL_QUIT) {
+        running_ = false;
+    } else if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+        const SDL_Keycode key = ev.key.keysym.sym;
+        if (key == SDLK_f) {
+            fullscreen_ = !fullscreen_;
+            SDL_SetWindowFullscreen(window_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        } else if (key == SDLK_i) {
+            tv_.interlace().enabled = !tv_.interlace().enabled;
+        } else if (key == SDLK_l && !tv_.has_tape()) {
+            tv_.insert_tape(std::make_shared<TestPatternSource>());
+        } else if (uint8_t b = key_to_button(key)) {
+            tv_.machine().press(b);
+        }
+    } else if (ev.type == SDL_KEYUP) {
+        if (uint8_t b = key_to_button(ev.key.keysym.sym)) tv_.machine().release(b);
+    }
+}
+
+void App::pump_audio() {
+    audio_buf_.clear();
+    tv_.take_audio(audio_buf_);
+    if (!audio_dev_ || audio_buf_.empty()) return;
+    // After a long stall, drop the backlog rather than lag behind the picture.
+    if (SDL_GetQueuedAudioSize(audio_dev_) > kAudioRate) SDL_ClearQueuedAudio(audio_dev_);
+    SDL_QueueAudio(audio_dev_, audio_buf_.data(), static_cast<Uint32>(audio_buf_.size() * sizeof(int16_t)));
+}
+
+void App::present() {
+    // The GPU composes once per video frame; the CRT canvas is re-presented
+    // at the display's refresh rate in between.
+    if (tv_.frames_composed() != presented_) {
+        presented_ = tv_.frames_composed();
+        tv_.render(canvas_);
+        SDL_UpdateTexture(texture_, nullptr, canvas_.px.data(), kCanvasW * 4);
+        auto shot = opt_.shots.find(static_cast<long>(tv_.machine().frame()));
+        if (shot != opt_.shots.end()) save_png(canvas_, shot->second);
+    }
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
+    SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
+    SDL_RenderPresent(renderer_);
+}
+
+int App::run() {
     Uint64 last = SDL_GetPerformanceCounter();
     const double freq = static_cast<double>(SDL_GetPerformanceFrequency());
-
-    while (running) {
+    while (running_) {
         SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            if (ev.type == SDL_QUIT) running = false;
-            else if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
-                if (ev.key.keysym.sym == SDLK_f) {
-                    fullscreen = !fullscreen;
-                    SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                } else if (ev.key.keysym.sym == SDLK_l && !machine.deck().has_tape()) {
-                    machine.deck().insert(blank_test_tape());  // dev shortcut until Phase 5 import
-                } else if (uint8_t b = key_to_button(ev.key.keysym.sym)) {
-                    machine.press(b);
-                }
-            } else if (ev.type == SDL_KEYUP) {
-                if (uint8_t b = key_to_button(ev.key.keysym.sym)) machine.release(b);
-            }
-        }
+        while (SDL_PollEvent(&ev)) handle_event(ev);
 
-        // Fixed-rate CPU clock: run exactly as many cycles as real time elapsed.
+        // Fixed-rate CPU clock: run as many cycles as real time elapsed,
+        // adjusted by at most 0.5% to keep the audio queue steady.
         const Uint64 now = SDL_GetPerformanceCounter();
         const double dt = static_cast<double>(now - last) / freq;
         last = now;
-        machine.advance(dt);
+        const size_t queued = audio_dev_ ? SDL_GetQueuedAudioSize(audio_dev_) / sizeof(int16_t)
+                                         : static_cast<size_t>(sync_.target_samples());
+        tv_.advance(sync_.adjust(dt, queued));
+        pump_audio();
 
-        if (autoplay_pending && machine.frame() > 60) {
-            machine.tap(io::BTN_PLAY);
-            autoplay_pending = false;
+        Machine& m = tv_.machine();
+        if (autoplay_pending_ && m.frame() > 75) {
+            m.tap(io::BTN_PLAY);
+            autoplay_pending_ = false;
         }
-
-        if (machine.cpu().fault() != CpuFault::None) {
-            std::fprintf(stderr, "VCR-1 fault: %s at $%04X\n", fault_name(machine.cpu().fault()),
-                         machine.cpu().fault_pc());
-            running = false;
+        if (m.cpu().fault() != CpuFault::None) {
+            std::fprintf(stderr, "VCR-1 fault: %s at $%04X\n", fault_name(m.cpu().fault()), m.cpu().fault_pc());
+            running_ = false;
         }
-
-        std::string title = "RetroTube 90";
-        const std::string osd = machine.gpu().osd_text();
-        if (!osd.empty()) title += "  [" + osd_to_utf8(osd) + "]";
-        if (title != last_title) {
-            SDL_SetWindowTitle(window, title.c_str());
-            std::printf("frame %6llu  deck=%-5s  %s\n", static_cast<unsigned long long>(machine.frame()),
-                        deck_state_name(machine.deck().state()), title.c_str());
+        const std::string osd = m.gpu().osd_text();
+        if (osd != last_osd_) {
+            std::printf("frame %6llu  deck=%-5s  OSD: %s\n", static_cast<unsigned long long>(m.frame()),
+                        deck_state_name(m.deck().state()), osd_to_utf8(osd).c_str());
             std::fflush(stdout);
-            last_title = title;
+            last_osd_ = osd;
         }
 
-        // The GPU composes once per video frame; the CRT canvas is re-presented
-        // at the display's refresh rate in between.
-        if (machine.frame() != composed_frame) {
-            composed_frame = machine.frame();
-            const bool tape_picture = machine.deck().has_tape();
-            if (tape_picture) draw_test_pattern(tape_layer, machine.deck().position());
-            gpu.compose(machine.gpu(), tape_picture ? &tape_layer : nullptr, machine.frame());
-            gpu.present(canvas);
-            SDL_UpdateTexture(texture, nullptr, canvas.px.data(), kCanvasW * 4);
-            auto shot = opt.shots.find(static_cast<long>(machine.frame()));
-            if (shot != opt.shots.end()) save_png(canvas, shot->second);
-        }
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-        SDL_RenderPresent(renderer);
+        present();
         SDL_Delay(1);
-
-        if (opt.max_frames >= 0 && static_cast<long>(machine.frame()) >= opt.max_frames) running = false;
+        if (opt_.max_frames >= 0 && static_cast<long>(m.frame()) >= opt_.max_frames) running_ = false;
     }
-
+    const Machine& m = tv_.machine();
     std::printf("exit: %llu frames, %llu CPU cycles, %llu instructions, %s\n",
-                static_cast<unsigned long long>(machine.frame()),
-                static_cast<unsigned long long>(machine.cpu().total_cycles()),
-                static_cast<unsigned long long>(machine.cpu().instructions()), machine.cpu().describe().c_str());
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+                static_cast<unsigned long long>(m.frame()), static_cast<unsigned long long>(m.cpu().total_cycles()),
+                static_cast<unsigned long long>(m.cpu().instructions()), m.cpu().describe().c_str());
+    return m.cpu().fault() == CpuFault::None ? 0 : 1;
+}
+
+void App::shutdown() {
+    if (audio_dev_) SDL_CloseAudioDevice(audio_dev_);
+    audio_dev_ = 0;
+    if (texture_) SDL_DestroyTexture(texture_);
+    if (renderer_) SDL_DestroyRenderer(renderer_);
+    if (window_) SDL_DestroyWindow(window_);
+    texture_ = nullptr;
+    renderer_ = nullptr;
+    window_ = nullptr;
     SDL_Quit();
-    return machine.cpu().fault() == CpuFault::None ? 0 : 1;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    App app(parse_args(argc, argv));
+    if (!app.init()) return 1;
+    return app.run();
 }

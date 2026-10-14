@@ -86,6 +86,7 @@ void Machine::vsync() {
     deck_.tick_frame();
     ++frame_;
     cpu_.vsync();
+    if (on_vsync_) on_vsync_();
 }
 
 void Machine::run_frame() {

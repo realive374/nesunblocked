@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "core/isa.h"
+#include "core/ram.h"
 
 namespace rt90 {
 
@@ -24,7 +25,7 @@ public:
 
 class Bus {
 public:
-    static constexpr size_t kSize = 0x10000;
+    static constexpr size_t kSize = Ram::kSize;
 
     Bus();
 
@@ -42,9 +43,10 @@ public:
     void map_io(uint8_t first, uint8_t last, IoDevice* dev);
 
     uint64_t rom_write_violations() const { return rom_violations_; }
+    const Ram& ram() const { return ram_; }
 
 private:
-    std::array<uint8_t, kSize> mem_{};
+    Ram ram_;
     std::array<IoDevice*, 256> io_{};
     uint64_t rom_violations_ = 0;
 };
