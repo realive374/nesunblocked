@@ -12,6 +12,9 @@
 
 #include "av/interlace.h"
 #include "av/static_noise.h"
+#include "av/timing.h"
+#include "av/vhs_audio.h"
+#include "av/vhs_noise.h"
 #include "gpu/gpu.h"
 #include "gpu/vram.h"
 #include "tape/tape_source.h"
@@ -61,6 +64,12 @@ public:
     const Vram& vram() const { return vram_; }
     TapeStreamer& streamer() { return streamer_; }
     InterlacePass& interlace() { return interlace_; }
+    VhsNoisePass& vhs_noise() { return vhs_; }
+    VhsAudio& vhs_audio() { return vhs_audio_; }
+
+    // VHS noise intensity 0-1 for picture and sound (default 0.15).
+    void set_noise(float level);
+    float noise() const { return vhs_.intensity(); }
     // Tape frame currently on screen (Vram::kNone if none).
     uint32_t shown_tape_frame() const { return vram_.front_frame(); }
 
@@ -76,6 +85,9 @@ private:
     SnowPass snow_;
     InterlacePass interlace_;
     HissGenerator hiss_;
+    VhsNoisePass vhs_;
+    VhsAudio vhs_audio_{kAudioRate};
+    uint32_t tracking_seen_ = 0;
     TapeFrame frame_;
     std::function<void(Framebuffer&)> overlay_;
     std::vector<int16_t> audio_;

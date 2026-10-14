@@ -11,6 +11,7 @@ namespace rt90 {
 TvSet::TvSet() {
     gpu_.set_pass(PassSlot::Snow, &snow_);
     gpu_.set_pass(PassSlot::Field, &interlace_);
+    gpu_.set_pass(PassSlot::TapeSignal, &vhs_);
     machine_.set_vsync_callback([this] { on_vsync(); });
 }
 
@@ -20,6 +21,11 @@ TvSet::~TvSet() {
 }
 
 bool TvSet::boot(std::string* error) { return machine_.boot_default(error); }
+
+void TvSet::set_noise(float level) {
+    vhs_.set_intensity(level);
+    vhs_audio_.set_intensity(level);
+}
 
 void TvSet::insert_tape(std::shared_ptr<TapeSource> source) {
     if (!source) return;
@@ -41,6 +47,15 @@ void TvSet::take_audio(std::vector<int16_t>& out) {
 }
 
 void TvSet::on_vsync() {
+    // The firmware fires FX_TRACKING when the TRACKING button is pressed.
+    const uint32_t tracking = machine_.gpu().tracking_requests();
+    if (tracking != tracking_seen_) {
+        tracking_seen_ = tracking;
+        vhs_.start_tracking();
+    }
+    const DeckState st = machine_.deck().state();
+    vhs_.set_search(st == DeckState::FastForward || st == DeckState::Rewinding);
+
     TapeFrame* played = nullptr;
     update_tape_picture(played);
     gpu_.compose(machine_.gpu(), vram_.front_frame() == Vram::kNone ? nullptr : &vram_.front(), machine_.frame(),
@@ -83,7 +98,7 @@ void TvSet::produce_audio(const TapeFrame* played) {
     if (played && screen == io::SCREEN_TAPE && !played->audio.empty()) n = played->audio.size();
     mix_.assign(n, 0.0f);
     if (played && screen == io::SCREEN_TAPE) {
-        for (size_t i = 0; i < n && i < played->audio.size(); ++i) mix_[i] = played->audio[i] / 32768.0f;
+        vhs_audio_.process(played->audio.data(), std::min(n, played->audio.size()), mix_.data());
     } else if (screen == io::SCREEN_STATIC) {
         hiss_.mix(mix_.data(), n);
     }

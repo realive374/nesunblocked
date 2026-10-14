@@ -6,6 +6,7 @@
 // through the CRT filter and shown.
 #include <SDL.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "app/tv_set.h"
+#include "app/ui_overlay.h"
 #include "av/av_sync.h"
 #include "av/timing.h"
 #include "util/image_io.h"
@@ -31,6 +33,8 @@ struct Options {
     bool test_tape = false;             // --test-tape: start with a blank test tape inserted
     bool autoplay = false;              // --play: press PLAY once the tape is in
     std::map<long, std::string> shots;  // --shot FRAME:FILE.png (repeatable)
+    float noise = -1;                   // --noise PERCENT
+    bool show_slider = false;           // --slider: open the noise slider at start
 };
 
 Options parse_args(int argc, char** argv) {
@@ -39,6 +43,8 @@ Options parse_args(int argc, char** argv) {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc) o.max_frames = std::strtol(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "--test-tape")) o.test_tape = true;
         else if (!std::strcmp(argv[i], "--play")) o.autoplay = true;
+        else if (!std::strcmp(argv[i], "--noise") && i + 1 < argc) o.noise = std::strtof(argv[++i], nullptr) / 100.0f;
+        else if (!std::strcmp(argv[i], "--slider")) o.show_slider = true;
         else if (!std::strcmp(argv[i], "--shot") && i + 1 < argc) {
             const std::string a = argv[++i];
             const size_t colon = a.find(':');
@@ -87,6 +93,8 @@ public:
 
 private:
     void handle_event(const SDL_Event& ev);
+    void change_noise(float delta);
+    bool slider_visible() const { return SDL_GetTicks() < slider_until_; }
     void pump_audio();
     void present();
     void shutdown();
@@ -105,6 +113,7 @@ private:
     bool fullscreen_ = false;
     bool running_ = true;
     bool autoplay_pending_ = false;
+    Uint32 slider_until_ = 0;  // the noise slider is on screen until this time
 };
 
 bool App::init() {
@@ -141,9 +150,20 @@ bool App::init() {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RetroTube 90", err.c_str(), window_);
         return false;
     }
+    if (opt_.noise >= 0) tv_.set_noise(opt_.noise);
+    if (opt_.show_slider) slider_until_ = 0xFFFFFFFFu;
+    tv_.set_overlay([this](Framebuffer& fb) {
+        if (slider_visible()) draw_noise_slider(fb, tv_.noise());
+    });
     if (opt_.test_tape || opt_.autoplay) tv_.insert_tape(std::make_shared<TestPatternSource>());
     autoplay_pending_ = opt_.autoplay;
     return true;
+}
+
+void App::change_noise(float delta) {
+    const float v = std::round((tv_.noise() + delta) * 100.0f) / 100.0f;
+    tv_.set_noise(v);
+    slider_until_ = SDL_GetTicks() + 3000;
 }
 
 void App::handle_event(const SDL_Event& ev) {
@@ -154,6 +174,15 @@ void App::handle_event(const SDL_Event& ev) {
         if (key == SDLK_f) {
             fullscreen_ = !fullscreen_;
             SDL_SetWindowFullscreen(window_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        } else if (key == SDLK_n) {
+            // N opens the noise slider; N again (or 3 s without input) closes it.
+            slider_until_ = slider_visible() ? 0 : SDL_GetTicks() + 3000;
+        } else if (slider_visible() && (key == SDLK_LEFT || key == SDLK_RIGHT)) {
+            change_noise(key == SDLK_LEFT ? -0.05f : 0.05f);  // arrows adjust while the slider is open
+        } else if (key == SDLK_MINUS || key == SDLK_KP_MINUS) {
+            change_noise(-0.05f);
+        } else if (key == SDLK_EQUALS || key == SDLK_PLUS || key == SDLK_KP_PLUS) {
+            change_noise(0.05f);
         } else if (key == SDLK_i) {
             tv_.interlace().enabled = !tv_.interlace().enabled;
         } else if (key == SDLK_l && !tv_.has_tape()) {
@@ -163,6 +192,8 @@ void App::handle_event(const SDL_Event& ev) {
         }
     } else if (ev.type == SDL_KEYUP) {
         if (uint8_t b = key_to_button(ev.key.keysym.sym)) tv_.machine().release(b);
+    } else if (ev.type == SDL_MOUSEWHEEL) {
+        change_noise(ev.wheel.y > 0 ? 0.05f : -0.05f);
     }
 }
 
