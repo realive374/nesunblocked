@@ -12,6 +12,7 @@ option(RT90_BUILD_APP   "Build the SDL2 desktop app" ON)
 option(RT90_BUILD_TESTS "Build unit / integration tests" ON)
 option(RT90_WERROR      "Treat compiler warnings as errors" ON)
 option(RT90_STATIC_SDL  "Link SDL2 statically" ${WIN32})
+option(RT90_WITH_FFMPEG "Enable MP4 import with FFmpeg" ON)
 
 if(MINGW)
   # Self-contained .exe: no libstdc++ / libgcc / winpthread DLLs needed.
@@ -63,6 +64,12 @@ add_library(rt90core STATIC
   src/gpu/font.cpp
   src/gpu/test_pattern.cpp
   src/util/image_io.cpp
+  src/util/file_util.cpp
+  src/util/log.cpp
+  src/tape/vhs_format.cpp
+  src/tape/file_detect.cpp
+  src/tape/jpeg.cpp
+  src/tape/importer.cpp
   src/util/stb_impl.cpp
   ${FIRMWARE_CPP})
 target_include_directories(rt90core PUBLIC ${CMAKE_SOURCE_DIR}/src)
@@ -71,6 +78,26 @@ set_source_files_properties(src/util/stb_impl.cpp PROPERTIES COMPILE_OPTIONS "$<
 find_package(Threads REQUIRED)
 target_link_libraries(rt90core PRIVATE rt90_warnings PUBLIC Threads::Threads)
 
+# --- FFmpeg (libavformat/libavcodec/libswscale/libswresample) --------------------
+if(RT90_WITH_FFMPEG)
+  find_package(PkgConfig REQUIRED)
+  if(MINGW)
+    # Static FFmpeg from scripts/build-ffmpeg-win64.sh: link its private deps too.
+    set(ENV{PKG_CONFIG_LIBDIR} "${CMAKE_SOURCE_DIR}/third_party/win64/lib/pkgconfig")
+    set(ENV{PKG_CONFIG_SYSROOT_DIR} "")
+    pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libswscale libswresample libavutil)
+    execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --static --libs libavformat libavcodec libswscale libswresample libavutil
+                    OUTPUT_VARIABLE FFMPEG_STATIC_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+    separate_arguments(FFMPEG_STATIC_LIBS)
+    target_include_directories(rt90core SYSTEM PRIVATE ${FFMPEG_INCLUDE_DIRS})
+    target_link_libraries(rt90core PRIVATE ${FFMPEG_STATIC_LIBS})
+  else()
+    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libswscale libswresample libavutil)
+    target_link_libraries(rt90core PRIVATE PkgConfig::FFMPEG)
+  endif()
+  target_compile_definitions(rt90core PRIVATE RT90_HAVE_FFMPEG=1)
+endif()
+
 # --- Assembler CLI ----------------------------------------------------------
 add_executable(vcrasm tools/vcrasm.cpp)
 target_link_libraries(vcrasm PRIVATE rt90core rt90_warnings)
@@ -78,8 +105,11 @@ target_link_libraries(vcrasm PRIVATE rt90core rt90_warnings)
 # --- Desktop app --------------------------------------------------------------
 if(RT90_BUILD_APP)
   find_package(SDL2 REQUIRED CONFIG)
-  add_executable(RetroTube90 WIN32 src/main.cpp)
+  add_executable(RetroTube90 WIN32 src/main.cpp src/platform/platform_win32.cpp src/platform/platform_posix.cpp)
   target_link_libraries(RetroTube90 PRIVATE rt90core rt90_warnings)
+  if(WIN32)
+    target_link_libraries(RetroTube90 PRIVATE comdlg32)
+  endif()
   if(TARGET SDL2::SDL2main)
     target_link_libraries(RetroTube90 PRIVATE SDL2::SDL2main)
   endif()
@@ -100,7 +130,11 @@ if(RT90_BUILD_TESTS)
     tests/test_firmware.cpp
     tests/test_gpu.cpp
     tests/test_ram_video.cpp
-    tests/test_noise.cpp)
+    tests/test_noise.cpp
+    tests/test_tape.cpp)
   target_link_libraries(rt90_tests PRIVATE rt90core rt90_warnings)
+  target_compile_definitions(rt90_tests PRIVATE
+    RT90_TEST_MEDIA_DIR="${CMAKE_SOURCE_DIR}/tests/media"
+    RT90_TEST_TMP_DIR="${CMAKE_BINARY_DIR}/test_tmp")
   add_test(NAME rt90_tests COMMAND rt90_tests)
 endif()

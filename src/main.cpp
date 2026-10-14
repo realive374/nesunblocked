@@ -3,7 +3,9 @@
 // Owns the SDL window, renderer and audio device and feeds the TvSet: real
 // time goes in (nudged by AvSync so audio and video stay locked), keyboard
 // input becomes front-panel button presses, and every new video frame is run
-// through the CRT filter and shown.
+// through the CRT filter and shown. Files arrive from the File menu, drag &
+// drop or the command line (dropping a file onto the .exe / a .vhs file
+// association) and are inserted as tapes - MP4s are "recorded" first.
 #include <SDL.h>
 
 #include <cmath>
@@ -11,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,8 +21,18 @@
 #include "app/ui_overlay.h"
 #include "av/av_sync.h"
 #include "av/timing.h"
+#include "platform/platform.h"
+#include "tape/file_detect.h"
+#include "tape/importer.h"
+#include "tape/vhs_format.h"
+#include "util/file_util.h"
 #include "util/image_io.h"
+#include "util/log.h"
 #include "vcr/io_ports.h"
+
+#ifndef RT90_VERSION
+#define RT90_VERSION "dev"
+#endif
 
 namespace {
 
@@ -28,27 +41,47 @@ using namespace rt90;
 constexpr int kCanvasW = kScreenW * 3;  // CRT canvas: 960x720
 constexpr int kCanvasH = kScreenH * 3;
 
+const char* const kControlsText =
+    "Space\tplay / pause\n"
+    "S\tstop\n"
+    "Left / Right\trewind / fast-forward\n"
+    "T\ttracking\n"
+    "N\tnoise slider (then Left / Right)\n"
+    "F\tfullscreen\n"
+    "F1\tdebug overlay\n"
+    "Esc\teject\n"
+    "Ctrl+O\topen a video or tape\n"
+    "I\tinterlaced look\n"
+    "P\tpower\n\n"
+    "Drag an .mp4 or .vhs file onto the TV to play it.";
+
 struct Options {
     long max_frames = -1;               // --frames N: quit after N video frames (smoke tests)
-    bool test_tape = false;             // --test-tape: start with a blank test tape inserted
-    bool autoplay = false;              // --play: press PLAY once the tape is in
+    bool test_tape = false;             // --test-tape: start with the built-in test tape
+    bool autoplay = false;              // --play: also press PLAY
     std::map<long, std::string> shots;  // --shot FRAME:FILE.png (repeatable)
     float noise = -1;                   // --noise PERCENT
     bool show_slider = false;           // --slider: open the noise slider at start
+    bool debug = false;                 // --debug: start with the F1 overlay
+    std::string open;                   // file to insert at start (drop onto the .exe)
 };
 
 Options parse_args(int argc, char** argv) {
     Options o;
     for (int i = 1; i < argc; ++i) {
-        if (!std::strcmp(argv[i], "--frames") && i + 1 < argc) o.max_frames = std::strtol(argv[++i], nullptr, 10);
-        else if (!std::strcmp(argv[i], "--test-tape")) o.test_tape = true;
-        else if (!std::strcmp(argv[i], "--play")) o.autoplay = true;
-        else if (!std::strcmp(argv[i], "--noise") && i + 1 < argc) o.noise = std::strtof(argv[++i], nullptr) / 100.0f;
-        else if (!std::strcmp(argv[i], "--slider")) o.show_slider = true;
-        else if (!std::strcmp(argv[i], "--shot") && i + 1 < argc) {
-            const std::string a = argv[++i];
-            const size_t colon = a.find(':');
-            if (colon != std::string::npos) o.shots[std::strtol(a.c_str(), nullptr, 10)] = a.substr(colon + 1);
+        const char* a = argv[i];
+        if (!std::strcmp(a, "--frames") && i + 1 < argc) o.max_frames = std::strtol(argv[++i], nullptr, 10);
+        else if (!std::strcmp(a, "--test-tape")) o.test_tape = true;
+        else if (!std::strcmp(a, "--play")) o.autoplay = true;
+        else if (!std::strcmp(a, "--noise") && i + 1 < argc) o.noise = std::strtof(argv[++i], nullptr) / 100.0f;
+        else if (!std::strcmp(a, "--slider")) o.show_slider = true;
+        else if (!std::strcmp(a, "--debug")) o.debug = true;
+        else if (!std::strcmp(a, "--shot") && i + 1 < argc) {
+            const std::string s = argv[++i];
+            const size_t colon = s.find(':');
+            if (colon != std::string::npos) o.shots[std::strtol(s.c_str(), nullptr, 10)] = s.substr(colon + 1);
+        } else if (a[0] != '-' && o.open.empty()) {
+            o.open = a;
         }
     }
     return o;
@@ -92,9 +125,21 @@ public:
     int run();
 
 private:
+    enum class Mode { Tv, Recording, NotRecognized };
+
     void handle_event(const SDL_Event& ev);
+    void handle_menu(int cmd);
+    void tap(uint8_t button);
     void change_noise(float delta);
     bool slider_visible() const { return SDL_GetTicks() < slider_until_; }
+    void toggle_fullscreen();
+    void open_dialog();
+    void open_path(const std::string& path);
+    void insert_vhs(const std::string& path, const std::string& shown_name);
+    void show_not_recognized(const std::string& name, const std::string& reason);
+    void update_recording();
+    void update_title();
+    void draw_overlay(Framebuffer& fb);
     void pump_audio();
     void present();
     void shutdown();
@@ -109,16 +154,26 @@ private:
     Framebuffer canvas_{kCanvasW, kCanvasH};
     std::vector<int16_t> audio_buf_;
     uint64_t presented_ = 0;
-    std::string last_osd_;
+    std::string last_osd_, last_title_;
     bool fullscreen_ = false;
     bool running_ = true;
-    bool autoplay_pending_ = false;
     Uint32 slider_until_ = 0;  // the noise slider is on screen until this time
+
+    Mode mode_ = Mode::Tv;
+    ImportJob job_;
+    std::string recording_title_;
+    std::string bad_name_, bad_reason_;
+    Uint32 bad_until_ = 0;
+    uint64_t play_at_frame_ = 0;  // press PLAY once the new tape has threaded
 };
 
 bool App::init() {
+    make_dirs(user_data_dir());
+    log_open(user_data_dir() + "retrotube90.log");
+    log_info("RetroTube 90 %s starting", RT90_VERSION);
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS) != 0) {
-        std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        log_error("SDL_Init failed: %s", SDL_GetError());
         return false;
     }
     window_ = SDL_CreateWindow("RetroTube 90", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, kCanvasW, kCanvasH,
@@ -129,11 +184,14 @@ bool App::init() {
         texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, kCanvasW,
                                      kCanvasH);
     if (!texture_) {
-        std::fprintf(stderr, "SDL window/renderer setup failed: %s\n", SDL_GetError());
+        log_error("SDL window/renderer setup failed: %s", SDL_GetError());
         return false;
     }
+    SDL_SetWindowMinimumSize(window_, kScreenW, kScreenH);
     SDL_SetTextureScaleMode(texture_, SDL_ScaleModeLinear);
     SDL_RenderSetLogicalSize(renderer_, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    platform::install_menu(window_);
 
     SDL_AudioSpec want{}, have{};
     want.freq = kAudioRate;
@@ -142,22 +200,31 @@ bool App::init() {
     want.samples = 512;
     audio_dev_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);  // SDL converts to the device format
     if (audio_dev_) SDL_PauseAudioDevice(audio_dev_, 0);
-    else std::fprintf(stderr, "No audio device (%s); running silent\n", SDL_GetError());
+    else log_warn("no audio device (%s); running silent", SDL_GetError());
 
     std::string err;
     if (!tv_.boot(&err)) {
-        std::fprintf(stderr, "Firmware failed to assemble:\n%s", err.c_str());
+        log_error("firmware failed to assemble:\n%s", err.c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RetroTube 90", err.c_str(), window_);
         return false;
     }
     if (opt_.noise >= 0) tv_.set_noise(opt_.noise);
     if (opt_.show_slider) slider_until_ = 0xFFFFFFFFu;
-    tv_.set_overlay([this](Framebuffer& fb) {
-        if (slider_visible()) draw_noise_slider(fb, tv_.noise());
-    });
-    if (opt_.test_tape || opt_.autoplay) tv_.insert_tape(std::make_shared<TestPatternSource>());
-    autoplay_pending_ = opt_.autoplay;
+    tv_.set_overlay([this](Framebuffer& fb) { draw_overlay(fb); });
+    if (opt_.test_tape || opt_.autoplay) {
+        tv_.insert_tape(std::make_shared<TestPatternSource>());
+        if (opt_.autoplay) play_at_frame_ = 75;
+    }
+    if (!opt_.open.empty()) open_path(opt_.open);
+    log_info("ready (audio %s, importer %s)", audio_dev_ ? "on" : "off", importer_available() ? "on" : "off");
     return true;
+}
+
+// ---- input -------------------------------------------------------------------
+
+void App::tap(uint8_t button) {
+    tv_.machine().press(button);
+    tv_.machine().release(button);
 }
 
 void App::change_noise(float delta) {
@@ -166,14 +233,67 @@ void App::change_noise(float delta) {
     slider_until_ = SDL_GetTicks() + 3000;
 }
 
+void App::toggle_fullscreen() {
+    fullscreen_ = !fullscreen_;
+    platform::set_menu_visible(window_, !fullscreen_);
+    SDL_SetWindowFullscreen(window_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+}
+
+void App::handle_menu(int cmd) {
+    switch (cmd) {
+        case platform::MENU_OPEN: open_dialog(); break;
+        case platform::MENU_EJECT: tap(io::BTN_EJECT); break;
+        case platform::MENU_EXIT: running_ = false; break;
+        case platform::MENU_PLAY: tap(io::BTN_PLAY); break;
+        case platform::MENU_STOP: tap(io::BTN_STOP); break;
+        case platform::MENU_REWIND: tap(io::BTN_REW); break;
+        case platform::MENU_FFWD: tap(io::BTN_FF); break;
+        case platform::MENU_TRACKING: tap(io::BTN_TRACK); break;
+        case platform::MENU_NOISE: slider_until_ = SDL_GetTicks() + 3000; break;
+        case platform::MENU_FULLSCREEN: toggle_fullscreen(); break;
+        case platform::MENU_INTERLACE: tv_.interlace().enabled = !tv_.interlace().enabled; break;
+        case platform::MENU_DEBUG: opt_.debug = !opt_.debug; break;
+        case platform::MENU_CONTROLS:
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "RetroTube 90 - Controls", kControlsText, window_);
+            break;
+        case platform::MENU_ABOUT:
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "About RetroTube 90",
+                                     "RetroTube 90 " RT90_VERSION "\nA 1990s TV + VCR emulator.\n\n"
+                                     "Video decoding by FFmpeg (LGPL). Window and sound by SDL2.",
+                                     window_);
+            break;
+        default: break;
+    }
+}
+
 void App::handle_event(const SDL_Event& ev) {
     if (ev.type == SDL_QUIT) {
         running_ = false;
+    } else if (ev.type == platform::menu_event_type()) {
+        handle_menu(ev.user.code);
+    } else if (ev.type == SDL_DROPFILE) {
+        if (ev.drop.file) {
+            const std::string path = ev.drop.file;
+            SDL_free(ev.drop.file);
+            open_path(path);
+        }
     } else if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
         const SDL_Keycode key = ev.key.keysym.sym;
-        if (key == SDLK_f) {
-            fullscreen_ = !fullscreen_;
-            SDL_SetWindowFullscreen(window_, fullscreen_ ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        const bool ctrl = (ev.key.keysym.mod & KMOD_CTRL) != 0;
+        if (mode_ == Mode::Recording) {
+            if (key == SDLK_ESCAPE) job_.cancel();
+            return;
+        }
+        if (mode_ == Mode::NotRecognized) {  // any key dismisses the screen
+            mode_ = Mode::Tv;
+            if (key == SDLK_ESCAPE) return;
+        }
+        if (key == SDLK_o && ctrl) {
+            open_dialog();
+        } else if (key == SDLK_f) {
+            toggle_fullscreen();
+        } else if (key == SDLK_F1) {
+            opt_.debug = !opt_.debug;
         } else if (key == SDLK_n) {
             // N opens the noise slider; N again (or 3 s without input) closes it.
             slider_until_ = slider_visible() ? 0 : SDL_GetTicks() + 3000;
@@ -185,8 +305,6 @@ void App::handle_event(const SDL_Event& ev) {
             change_noise(0.05f);
         } else if (key == SDLK_i) {
             tv_.interlace().enabled = !tv_.interlace().enabled;
-        } else if (key == SDLK_l && !tv_.has_tape()) {
-            tv_.insert_tape(std::make_shared<TestPatternSource>());
         } else if (uint8_t b = key_to_button(key)) {
             tv_.machine().press(b);
         }
@@ -196,6 +314,99 @@ void App::handle_event(const SDL_Event& ev) {
         change_noise(ev.wheel.y > 0 ? 0.05f : -0.05f);
     }
 }
+
+// ---- tapes ---------------------------------------------------------------------
+
+void App::open_dialog() {
+    std::string path;
+    if (platform::open_file_dialog(window_, path)) open_path(path);
+}
+
+void App::open_path(const std::string& path) {
+    log_info("open: %s", path.c_str());
+    if (mode_ == Mode::Recording) {
+        job_.cancel();
+        job_.take_result();
+        tv_.volume = 1.0f;
+        mode_ = Mode::Tv;
+    }
+    // Switch the set on if the user turned it off (the firmware powers up by
+    // itself at reset, so leave it alone before the first frame).
+    if (tv_.machine().frame() > 0 && !tv_.machine().power_led()) tap(io::BTN_POWER);
+    const Detection d = detect_file(path);
+    log_info("open: detected %s", file_kind_name(d.kind));
+    switch (d.kind) {
+        case FileKind::Vhs:
+            insert_vhs(path, path_filename(path));
+            break;
+        case FileKind::Mp4:
+            if (!importer_available()) {
+                show_not_recognized(path_filename(path), "this build cannot record MP4s");
+                break;
+            }
+            recording_title_ = path_stem(path);
+            job_.start(path);
+            mode_ = Mode::Recording;
+            tv_.volume = 0.0f;  // the TV is quiet while the VCR records
+            break;
+        default:
+            show_not_recognized(path_filename(path), d.reason);
+            break;
+    }
+}
+
+void App::insert_vhs(const std::string& path, const std::string& shown_name) {
+    std::string err;
+    auto src = VhsSource::open(path, &err);
+    if (!src) {
+        log_warn("open: %s: %s", path.c_str(), err.c_str());
+        show_not_recognized(shown_name, err);
+        return;
+    }
+    log_info("insert: \"%s\" (%u frames, %.1f s)", src->title().c_str(), src->frame_count(),
+             src->frame_count() / kNtscFps);
+    tv_.insert_tape(src);
+    mode_ = Mode::Tv;
+    // The firmware shows a second of static while the tape threads, then we
+    // press PLAY (which adds the short burst of static).
+    play_at_frame_ = std::max<uint64_t>(tv_.machine().frame() + 26, 40);  // after power-on static
+}
+
+void App::show_not_recognized(const std::string& name, const std::string& reason) {
+    log_warn("not recognized: %s (%s)", name.c_str(), reason.c_str());
+    bad_name_ = name;
+    bad_reason_ = reason;
+    bad_until_ = SDL_GetTicks() + 6000;
+    mode_ = Mode::NotRecognized;
+}
+
+void App::update_recording() {
+    if (mode_ != Mode::Recording || !job_.done()) return;
+    const ImportResult r = job_.take_result();
+    tv_.volume = 1.0f;
+    mode_ = Mode::Tv;
+    if (r.ok) insert_vhs(r.vhs_path, path_filename(job_.source()));
+    else if (!r.cancelled) show_not_recognized(path_filename(job_.source()), r.error);
+}
+
+void App::draw_overlay(Framebuffer& fb) {
+    const uint64_t frame = tv_.machine().frame();
+    if (mode_ == Mode::Recording) draw_recording_screen(fb, recording_title_, job_.progress(), frame);
+    else if (mode_ == Mode::NotRecognized) draw_not_recognized(fb, bad_name_, bad_reason_);
+    if (slider_visible() && mode_ == Mode::Tv) draw_noise_slider(fb, tv_.noise());
+}
+
+void App::update_title() {
+    std::string title = "RetroTube 90";
+    if (mode_ == Mode::Recording) title += " - Recording " + recording_title_;
+    else if (auto t = tv_.tape(); t && tv_.has_tape()) title += " - " + t->title();
+    if (title != last_title_) {
+        SDL_SetWindowTitle(window_, title.c_str());
+        last_title_ = title;
+    }
+}
+
+// ---- output ---------------------------------------------------------------------
 
 void App::pump_audio() {
     audio_buf_.clear();
@@ -239,35 +450,38 @@ int App::run() {
         tv_.advance(sync_.adjust(dt, queued));
         pump_audio();
 
+        update_recording();
+        if (mode_ == Mode::NotRecognized && SDL_GetTicks() > bad_until_) mode_ = Mode::Tv;
         Machine& m = tv_.machine();
-        if (autoplay_pending_ && m.frame() > 75) {
-            m.tap(io::BTN_PLAY);
-            autoplay_pending_ = false;
+        if (play_at_frame_ && m.frame() >= play_at_frame_) {
+            if (tv_.has_tape()) tap(io::BTN_PLAY);
+            play_at_frame_ = 0;
         }
         if (m.cpu().fault() != CpuFault::None) {
-            std::fprintf(stderr, "VCR-1 fault: %s at $%04X\n", fault_name(m.cpu().fault()), m.cpu().fault_pc());
+            log_error("VCR-1 fault: %s at $%04X (%s)", fault_name(m.cpu().fault()), m.cpu().fault_pc(),
+                      m.cpu().describe().c_str());
             running_ = false;
         }
         const std::string osd = m.gpu().osd_text();
         if (osd != last_osd_) {
-            std::printf("frame %6llu  deck=%-5s  OSD: %s\n", static_cast<unsigned long long>(m.frame()),
-                        deck_state_name(m.deck().state()), osd_to_utf8(osd).c_str());
-            std::fflush(stdout);
+            log_info("frame %llu deck=%s OSD: %s", static_cast<unsigned long long>(m.frame()),
+                     deck_state_name(m.deck().state()), osd_to_utf8(osd).c_str());
             last_osd_ = osd;
         }
-
+        update_title();
         present();
         SDL_Delay(1);
         if (opt_.max_frames >= 0 && static_cast<long>(m.frame()) >= opt_.max_frames) running_ = false;
     }
     const Machine& m = tv_.machine();
-    std::printf("exit: %llu frames, %llu CPU cycles, %llu instructions, %s\n",
-                static_cast<unsigned long long>(m.frame()), static_cast<unsigned long long>(m.cpu().total_cycles()),
-                static_cast<unsigned long long>(m.cpu().instructions()), m.cpu().describe().c_str());
+    log_info("exit: %llu frames, %llu CPU cycles, %llu instructions, %s",
+             static_cast<unsigned long long>(m.frame()), static_cast<unsigned long long>(m.cpu().total_cycles()),
+             static_cast<unsigned long long>(m.cpu().instructions()), m.cpu().describe().c_str());
     return m.cpu().fault() == CpuFault::None ? 0 : 1;
 }
 
 void App::shutdown() {
+    job_.cancel();
     if (audio_dev_) SDL_CloseAudioDevice(audio_dev_);
     audio_dev_ = 0;
     if (texture_) SDL_DestroyTexture(texture_);
@@ -277,6 +491,7 @@ void App::shutdown() {
     renderer_ = nullptr;
     window_ = nullptr;
     SDL_Quit();
+    log_close();
 }
 
 }  // namespace
