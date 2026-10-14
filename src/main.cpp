@@ -1,17 +1,19 @@
 // RetroTube 90 - desktop host.
 //
-// Phase 1: boots the VCR-1 firmware and ticks the CPU at a fixed 1 MHz clock
-// from the main loop. Until the GPU lands (Phase 2) the screen mode is shown
-// as a flat placeholder and the OSD text is mirrored into the window title.
+// Boots the VCR-1 firmware, ticks the CPU at a fixed 1 MHz clock from the main
+// loop, and shows the GPU's picture through the CRT filter.
 #include <SDL.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <random>
+#include <map>
 #include <string>
 #include <vector>
 
+#include "gpu/gpu.h"
+#include "gpu/test_pattern.h"
+#include "util/image_io.h"
 #include "vcr/io_ports.h"
 #include "vcr/machine.h"
 
@@ -19,13 +21,14 @@ namespace {
 
 using namespace rt90;
 
-constexpr int kInternalW = 320;
-constexpr int kInternalH = 240;
+constexpr int kCanvasW = kScreenW * 3;  // CRT canvas: 960x720
+constexpr int kCanvasH = kScreenH * 3;
 
 struct Options {
     long max_frames = -1;      // --frames N: quit after N video frames (smoke tests)
     bool test_tape = false;    // --test-tape: start with a blank test tape inserted
     bool autoplay = false;     // --play: press PLAY once the tape is in
+    std::map<long, std::string> shots;  // --shot FRAME:FILE.png (repeatable)
 };
 
 Options parse_args(int argc, char** argv) {
@@ -34,6 +37,11 @@ Options parse_args(int argc, char** argv) {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc) o.max_frames = std::strtol(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "--test-tape")) o.test_tape = true;
         else if (!std::strcmp(argv[i], "--play")) o.autoplay = o.test_tape = true;
+        else if (!std::strcmp(argv[i], "--shot") && i + 1 < argc) {
+            const std::string a = argv[++i];
+            const size_t colon = a.find(':');
+            if (colon != std::string::npos) o.shots[std::strtol(a.c_str(), nullptr, 10)] = a.substr(colon + 1);
+        }
     }
     return o;
 }
@@ -75,33 +83,6 @@ uint8_t key_to_button(SDL_Keycode key) {
     }
 }
 
-// Placeholder picture for each screen mode (replaced by the GPU in Phase 2).
-void draw_placeholder(uint8_t screen, std::vector<uint32_t>& px, std::mt19937& rng) {
-    switch (screen) {
-        case io::SCREEN_STATIC:
-            for (uint32_t& p : px) {
-                const uint32_t v = rng() & 0xFF;
-                p = 0xFF000000u | (v << 16) | (v << 8) | v;
-            }
-            break;
-        case io::SCREEN_BLUE:
-            std::fill(px.begin(), px.end(), 0xFF0020C0u);
-            break;
-        case io::SCREEN_TAPE: {
-            // SMPTE-ish colour bars stand in for tape video.
-            static const uint32_t bars[7] = {0xFFC0C0C0, 0xFFC0C000, 0xFF00C0C0, 0xFF00C000,
-                                             0xFFC000C0, 0xFFC00000, 0xFF0000C0};
-            for (int y = 0; y < kInternalH; ++y)
-                for (int x = 0; x < kInternalW; ++x)
-                    px[static_cast<size_t>(y * kInternalW + x)] = bars[x * 7 / kInternalW];
-            break;
-        }
-        default:
-            std::fill(px.begin(), px.end(), 0xFF000000u);
-            break;
-    }
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -112,18 +93,20 @@ int main(int argc, char** argv) {
         return 1;
     }
     SDL_Window* window = SDL_CreateWindow("RetroTube 90", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                          kInternalW * 3, kInternalH * 3, SDL_WINDOW_RESIZABLE);
+                                          kCanvasW, kCanvasH, SDL_WINDOW_RESIZABLE);
     SDL_Renderer* renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC) : nullptr;
     if (!renderer && window) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     SDL_Texture* texture = renderer ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                                        SDL_TEXTUREACCESS_STREAMING, kInternalW, kInternalH)
+                                                        SDL_TEXTUREACCESS_STREAMING, kCanvasW, kCanvasH)
                                     : nullptr;
     if (!texture) {
         std::fprintf(stderr, "SDL window/renderer setup failed: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
-    SDL_RenderSetLogicalSize(renderer, kInternalW * 4, kInternalH * 4);  // keep 4:3
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    SDL_SetTextureScaleMode(texture, SDL_ScaleModeLinear);
+    SDL_RenderSetLogicalSize(renderer, kCanvasW, kCanvasH);  // keep 4:3, letterbox the rest
 
     Machine machine;
     std::string err;
@@ -138,8 +121,10 @@ int main(int argc, char** argv) {
     }
     if (opt.test_tape) machine.deck().insert(blank_test_tape());
 
-    std::vector<uint32_t> pixels(static_cast<size_t>(kInternalW * kInternalH));
-    std::mt19937 rng(1990);
+    Gpu gpu;
+    Framebuffer tape_layer(kScreenW, kScreenH);
+    Framebuffer canvas(kCanvasW, kCanvasH);
+    uint64_t composed_frame = ~0ull;
     std::string last_title;
     bool fullscreen = false;
     bool running = true;
@@ -193,8 +178,18 @@ int main(int argc, char** argv) {
             last_title = title;
         }
 
-        draw_placeholder(machine.gpu().screen(), pixels, rng);
-        SDL_UpdateTexture(texture, nullptr, pixels.data(), kInternalW * 4);
+        // The GPU composes once per video frame; the CRT canvas is re-presented
+        // at the display's refresh rate in between.
+        if (machine.frame() != composed_frame) {
+            composed_frame = machine.frame();
+            const bool tape_picture = machine.deck().has_tape();
+            if (tape_picture) draw_test_pattern(tape_layer, machine.deck().position());
+            gpu.compose(machine.gpu(), tape_picture ? &tape_layer : nullptr, machine.frame());
+            gpu.present(canvas);
+            SDL_UpdateTexture(texture, nullptr, canvas.px.data(), kCanvasW * 4);
+            auto shot = opt.shots.find(static_cast<long>(machine.frame()));
+            if (shot != opt.shots.end()) save_png(canvas, shot->second);
+        }
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);

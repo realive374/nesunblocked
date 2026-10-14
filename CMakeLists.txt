@@ -46,9 +46,19 @@ add_library(rt90core STATIC
   src/vcr/deck.cpp
   src/vcr/machine.cpp
   src/gpu/gpu_regs.cpp
+  src/gpu/gpu.cpp
+  src/gpu/crt_filter.cpp
+  src/gpu/draw.cpp
+  src/gpu/font.cpp
+  src/gpu/test_pattern.cpp
+  src/util/image_io.cpp
+  src/util/stb_impl.cpp
   ${FIRMWARE_CPP})
 target_include_directories(rt90core PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(rt90core PRIVATE rt90_warnings)
+target_include_directories(rt90core SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/external/stb)
+set_source_files_properties(src/util/stb_impl.cpp PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
+find_package(Threads REQUIRED)
+target_link_libraries(rt90core PRIVATE rt90_warnings PUBLIC Threads::Threads)
 
 # --- Assembler CLI ----------------------------------------------------------
 add_executable(vcrasm tools/vcrasm.cpp)
@@ -76,7 +86,8 @@ if(RT90_BUILD_TESTS)
     tests/test_main.cpp
     tests/test_cpu.cpp
     tests/test_assembler.cpp
-    tests/test_firmware.cpp)
+    tests/test_firmware.cpp
+    tests/test_gpu.cpp)
   target_link_libraries(rt90_tests PRIVATE rt90core rt90_warnings)
   add_test(NAME rt90_tests COMMAND rt90_tests)
 endif()
