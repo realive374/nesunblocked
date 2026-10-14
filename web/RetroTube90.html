@@ -1,0 +1,1416 @@
+<title>RetroTube 90</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500&family=Michroma&family=VT323&display=swap">
+<style>
+/* Layout: one column, a CRT set stacked on its VCR, sized to the phone's width; controls are the VCR's own front panel. */
+:root {
+  --room: #121214;          /* the dark living room behind the set */
+  --cabinet: #26262b;       /* moulded TV plastic */
+  --cabinet-hi: #34343b;
+  --deck: #1a1a1e;          /* VCR fascia */
+  --silk: #b9bcc6;          /* silkscreened labels */
+  --silk-dim: #7d808b;
+  --vfd: #7ef0e2;           /* vacuum-fluorescent display */
+  --vfd-dim: #1f4a47;
+  --led: #ff4433;           /* power / REC LED */
+  --key: #2f3036;           /* rubber keys */
+  --key-hi: #44454d;
+  --focus: #ffd166;
+  --font-brand: "Michroma", "Eurostile", "Arial Black", sans-serif;
+  --font-silk: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", "Segoe UI", Roboto, sans-serif;
+  --font-vfd: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: radial-gradient(120% 80% at 50% 0%, #1c1c20 0%, var(--room) 60%) var(--room);
+  color: var(--silk);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 28px;
+  -webkit-tap-highlight-color: transparent;
+}
+.set { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
+
+/* ---- TV ---- */
+.tv {
+  background: linear-gradient(180deg, var(--cabinet-hi), var(--cabinet) 40%, #1f1f23);
+  border-radius: 28px 28px 22px 22px;
+  padding: clamp(12px, 3.2vw, 26px) clamp(12px, 3.2vw, 26px) 10px;
+  box-shadow: 0 1px 0 #4a4a52 inset, 0 24px 50px -20px #000, 0 2px 0 #0a0a0c;
+}
+.bezel {
+  position: relative;
+  background: #0b0b0d;
+  border-radius: 22px / 18px;
+  padding: clamp(6px, 1.6vw, 12px);
+  box-shadow: 0 0 0 2px #111114, 0 2px 0 2px #3a3a42, inset 0 0 30px #000;
+}
+#screen { display: block; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 14px / 12px; background: #000; cursor: pointer; touch-action: manipulation; }
+#debug {
+  position: absolute; left: 18px; top: 16px; margin: 0; max-width: calc(100% - 36px);
+  font: 12px/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #c8ffd0;
+  background: rgba(0, 0, 0, 0.72); padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.tv-foot { display: flex; align-items: center; gap: 12px; padding: 10px 6px 2px; }
+.brand { font-family: var(--font-brand); font-size: 12px; letter-spacing: 0.18em; color: var(--silk); }
+.brand b { color: var(--led); font-weight: 400; }
+.grille { flex: 1; height: 10px; background: repeating-linear-gradient(90deg, #17171a 0 3px, transparent 3px 6px); border-radius: 3px; opacity: 0.9; }
+.pled { width: 8px; height: 8px; border-radius: 50%; background: #3a1512; box-shadow: inset 0 0 2px #000; }
+.pled.on { background: var(--led); box-shadow: 0 0 8px var(--led); }
+
+/* ---- VCR ---- */
+.vcr {
+  background: linear-gradient(180deg, #232327, var(--deck) 30%);
+  border-radius: 10px;
+  padding: 14px clamp(12px, 3vw, 22px) 16px;
+  box-shadow: 0 1px 0 #3d3d44 inset, 0 18px 30px -18px #000;
+  display: grid; gap: 14px;
+}
+.vcr-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; align-items: stretch; }
+.slot {
+  position: relative; border-radius: 4px; background: #0d0d10; box-shadow: inset 0 2px 6px #000, 0 1px 0 #34343a;
+  display: flex; flex-direction: column; justify-content: center; padding: 10px 12px; min-height: 64px; min-width: 0;
+}
+.slot::before { content: ""; position: absolute; left: 10px; right: 10px; top: 50%; height: 2px; background: #222227; border-radius: 1px; }
+.slot-label { position: relative; font-family: var(--font-silk); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--silk-dim); background: #0d0d10; align-self: flex-start; padding-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.slot-label.loaded { color: var(--silk); }
+.vfd {
+  border-radius: 4px; background: #061312; box-shadow: inset 0 0 0 1px #0f2725, inset 0 2px 8px #000;
+  padding: 6px 12px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 12px; min-width: 0;
+  font-family: var(--font-vfd); color: var(--vfd); text-shadow: 0 0 6px rgba(126, 240, 226, 0.55);
+}
+.vfd .mode { font-size: 30px; line-height: 1; min-width: 2.2ch; }
+.vfd .count { font-size: clamp(30px, 8vw, 42px); line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.vfd .flags { grid-column: 1 / -1; display: flex; gap: 12px; font-size: 16px; letter-spacing: 0.06em; }
+.vfd .off { color: var(--vfd-dim); text-shadow: none; }
+.vfd .rec { color: var(--led); text-shadow: 0 0 6px rgba(255, 68, 51, 0.6); }
+
+.transport { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.key {
+  display: grid; gap: 5px; justify-items: center; background: none; border: 0; padding: 0; color: var(--silk); cursor: pointer; font: inherit;
+}
+.key span.lbl { font-family: var(--font-silk); font-weight: 600; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silk-dim); }
+.key span.cap {
+  width: 100%; height: 44px; display: grid; place-items: center; border-radius: 6px;
+  background: linear-gradient(180deg, var(--key-hi), var(--key) 55%, #27282d);
+  box-shadow: 0 2px 0 #0b0b0d, 0 3px 6px -2px #000, inset 0 1px 0 #55565f;
+  font-size: 17px; color: #d8dae2; transition: transform 60ms, box-shadow 60ms;
+}
+.key:active span.cap, .key.down span.cap { transform: translateY(2px); box-shadow: 0 0 0 #0b0b0d, inset 0 1px 0 #55565f; }
+.key.play span.cap { background: linear-gradient(180deg, #4b4c55, #383941 55%, #2c2d33); color: #fff; }
+.key:focus-visible span.cap, .chip:focus-visible, .insert:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.aux { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.insert {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: var(--font-silk); font-weight: 700; font-size: 15px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #101012; background: linear-gradient(180deg, #e9ebf0, #c4c7cf); border-radius: 6px; padding: 11px 16px;
+  box-shadow: 0 2px 0 #0b0b0d, inset 0 1px 0 #fff;
+}
+.insert input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.chip {
+  font-family: var(--font-silk); font-weight: 600; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--silk); background: #222227; border: 1px solid #34343b; border-radius: 6px; padding: 10px 12px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { color: var(--vfd); border-color: #2c5753; }
+.chip.power[aria-pressed="true"] { color: var(--led); border-color: #5a2a25; }
+.noise { display: flex; align-items: center; gap: 10px; flex: 1 1 220px; min-width: 0; }
+.noise label { font-family: var(--font-silk); font-weight: 600; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
+.noise input { flex: 1; min-width: 0; accent-color: var(--vfd); }
+.noise output { font-family: var(--font-vfd); font-size: 22px; color: var(--vfd); min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+.notes { font-size: 14px; line-height: 1.55; color: var(--silk-dim); max-width: 65ch; margin: 4px auto 0; display: grid; gap: 6px; }
+.notes p { margin: 0; }
+.notes kbd { font-family: var(--font-silk); font-weight: 600; font-size: 12px; letter-spacing: 0.06em; color: var(--silk); background: #222227; border: 1px solid #34343b; border-radius: 4px; padding: 0 5px; }
+#hiddenVideo { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+
+@media (max-width: 520px) {
+  .vcr-top { grid-template-columns: minmax(0, 1fr); }
+  .transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .key span.cap { height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { .key span.cap { transition: none; } }
+</style>
+
+<main class="set">
+  <section class="tv" id="tv" aria-label="Television">
+    <div class="bezel">
+      <canvas id="screen" width="960" height="720" aria-label="TV screen. Tap to insert a tape or to play and pause."></canvas>
+      <pre id="debug" hidden></pre>
+    </div>
+    <div class="tv-foot">
+      <span class="brand">RETROTUBE <b>90</b></span>
+      <span class="grille" aria-hidden="true"></span>
+      <span class="pled" id="pled" title="Power"></span>
+    </div>
+  </section>
+
+  <section class="vcr" aria-label="VCR">
+    <div class="vcr-top">
+      <div class="slot"><span class="slot-label" id="slotLabel">No tape</span></div>
+      <div class="vfd" aria-live="off">
+        <span class="mode" id="vfdMode">&nbsp;</span>
+        <span class="count" id="vfdCount">-:--:--</span>
+        <span class="flags"><span id="vfdVcr" class="off">VCR</span><span id="vfdSp" class="off">SP</span><span id="vfdRec" class="off">REC</span><span id="vfdTrk" class="off">TRK</span><span id="vfdHifi" class="off">HI-FI</span></span>
+      </div>
+    </div>
+    <div class="transport">
+      <button class="key" id="kEject" data-btn="EJECT" type="button"><span class="lbl">Eject</span><span class="cap" aria-hidden="true">&#x23CF;</span></button>
+      <button class="key" id="kRew" data-btn="REW" type="button"><span class="lbl">Rew</span><span class="cap" aria-hidden="true">&#x25C0;&#x25C0;</span></button>
+      <button class="key play" id="kPlay" data-btn="PLAY" type="button"><span class="lbl">Play / Pause</span><span class="cap" aria-hidden="true">&#x25B6;&#x2009;&#x2016;</span></button>
+      <button class="key" id="kStop" data-btn="STOP" type="button"><span class="lbl">Stop</span><span class="cap" aria-hidden="true">&#x25A0;</span></button>
+      <button class="key" id="kFf" data-btn="FF" type="button"><span class="lbl">FF</span><span class="cap" aria-hidden="true">&#x25B6;&#x25B6;</span></button>
+      <button class="key" id="kTrack" data-btn="TRACK" type="button"><span class="lbl">Tracking</span><span class="cap" aria-hidden="true">&#x2195;</span></button>
+    </div>
+    <div class="aux">
+      <label class="insert" for="file">Insert tape<input id="file" type="file" accept="video/mp4,video/quicktime,video/*,.mp4,.m4v,.mov,.vhs"></label>
+      <button class="chip" id="testTape" type="button">Test tape</button>
+      <button class="chip power" id="power" type="button" aria-pressed="true">Power</button>
+      <div class="noise"><label for="noise">Noise</label><input id="noise" type="range" min="0" max="100" step="1" value="15"><output id="noiseOut" for="noise">15%</output></div>
+      <button class="chip" id="interlace" type="button" aria-pressed="false">Interlace</button>
+      <button class="chip" id="debugBtn" type="button" aria-pressed="false">Debug</button>
+      <button class="chip" id="fullBtn" type="button">Fullscreen</button>
+    </div>
+  </section>
+
+  <div class="notes">
+    <p>Tap <b>Insert tape</b> and pick a movie from your phone (MP4 or MOV), or a <b>.vhs</b> tape made by the desktop app. The VCR records it, threads the tape and presses play. Tap the screen to play or pause.</p>
+    <p>Keyboard: <kbd>Space</kbd> play/pause, <kbd>S</kbd> stop, <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> rewind/fast-forward, <kbd>T</kbd> tracking, <kbd>N</kbd> noise, <kbd>F</kbd> fullscreen, <kbd>F1</kbd> debug, <kbd>Esc</kbd> eject, <kbd>I</kbd> interlace, <kbd>P</kbd> power, <kbd>L</kbd> test tape. You can also drag a file onto the TV.</p>
+  </div>
+</main>
+<video id="hiddenVideo" playsinline webkit-playsinline preload="auto"></video>
+
+<script>
+"use strict";
+const FIRMWARE_SRC = "; ===========================================================================\n;  RetroTube 90 - VCR-1 firmware\n;\n;  Runs once per video frame (WAI waits for vsync), polls the front panel and\n;  the tape deck, drives the transport, picks the screen mode and draws the\n;  on-screen display. See docs/VCR1.md for the instruction set.\n; ===========================================================================\n\n; ---- I/O ports (address $FF00 + port) -------------------------------------\n.equ P_BTN_HELD,    $00\n.equ P_BTN_EDGE,    $01\n.equ P_FRAME_LO,    $02\n.equ P_POWER_LED,   $04\n.equ P_DECK_STAT,   $10\n.equ P_DECK_CMD,    $11\n.equ P_DECK_H,      $12\n.equ P_DECK_M,      $13\n.equ P_DECK_S,      $14\n.equ P_DECK_SPEED,  $16\n.equ P_SCREEN,      $20\n.equ P_OSD_X,       $21\n.equ P_OSD_Y,       $22\n.equ P_OSD_CHAR,    $23\n.equ P_OSD_CLEAR,   $24\n.equ P_OSD_COLOR,   $25\n.equ P_GPU_FX,      $26\n\n; ---- front panel buttons ----------------------------------------------------\n.equ B_POWER,  $01\n.equ B_PLAY,   $02\n.equ B_STOP,   $04\n.equ B_REW,    $08\n.equ B_FF,     $10\n.equ B_EJECT,  $20\n.equ B_TRACK,  $40\n\n; ---- deck status bits / commands -------------------------------------------\n.equ S_TAPE,    $01\n.equ S_MOTOR,   $02\n.equ S_BOT,     $04\n.equ S_EOT,     $08\n.equ S_CHANGED, $10\n\n.equ C_STOP,  0\n.equ C_PLAY,  1\n.equ C_PAUSE, 2\n.equ C_REW,   3\n.equ C_FF,    4\n.equ C_EJECT, 5\n.equ C_ACK,   6\n\n; ---- GPU ---------------------------------------------------------------------\n.equ SCR_OFF,    0\n.equ SCR_STATIC, 1\n.equ SCR_BLUE,   2\n.equ SCR_TAPE,   3\n\n.equ COL_GREEN, 0\n.equ COL_WHITE, 1\n\n.equ FX_TRACKING, $01\n\n; ---- firmware modes (doubling as OSD label ids) ---------------------------------\n.equ M_NOTAPE, 0\n.equ M_STOP,   1\n.equ M_PLAY,   2\n.equ M_PAUSE,  3\n.equ M_REW,    4\n.equ M_FF,     5\n.equ L_EJECT,  6\n.equ L_TRACK,  7\n.equ L_NOTAPE, 8\n\n; ---- timings, in frames (29.97 per second) ---------------------------------------\n.equ T_POWERON_STATIC, 45   ; 1.5 s of snow while the \"tube warms up\"\n.equ T_TAPE_STATIC,    30   ; 1 s of snow when a tape goes in or out\n.equ T_PLAY_STATIC,    15   ; 0.5 s burst when playback starts\n.equ T_OSD,            90   ; transport labels stay up for 3 s\n.equ T_OSD_SHORT,      45\n.equ SHUTTLE_SPEED,    12   ; REW/FF speed in frames per vsync\n\n; ---- work RAM ------------------------------------------------------------------\n.equ V_POWER,    $8000\n.equ V_MODE,     $8001\n.equ V_LABEL,    $8002\n.equ V_OSD_T,    $8003\n.equ V_STATIC_T, $8004\n.equ V_SCREEN,   $8005\n.equ V_EDGE,     $8006\n.equ V_STATUS,   $8007\n\n; ===========================================================================\n.org $0000\nreset:\n    LD A, 0\n    ST [V_POWER], A\n    ST [V_OSD_T], A\n    ST [V_STATIC_T], A\n    ST [V_MODE], A\n    OUT P_SCREEN, SCR_OFF\n    OUT P_OSD_CLEAR, 0\n    OUT P_DECK_SPEED, SHUTTLE_SPEED\n    CALL power_on               ; the TV/VCR combo switches on at reset\n\nmain_loop:\n    WAI                         ; sleep until the next vsync\n    IN A, P_BTN_EDGE\n    ST [V_EDGE], A\n    LD A, [V_POWER]\n    CMP A, 0\n    JZ standby\n    CALL poll_deck\n    CALL handle_buttons\n    LD A, [V_POWER]             ; POWER may have just switched us off\n    CMP A, 0\n    JZ main_loop\n    CALL update_screen\n    CALL draw_osd\n    JMP main_loop\n\nstandby:                        ; powered off: only the POWER button works\n    LD A, [V_EDGE]\n    AND A, B_POWER\n    JZ main_loop\n    CALL power_on\n    JMP main_loop\n\n; ---------------------------------------------------------------------------\npower_on:\n    LD A, 1\n    ST [V_POWER], A\n    OUT P_POWER_LED, 1\n    LD A, T_POWERON_STATIC\n    ST [V_STATIC_T], A\n    LD A, 0\n    ST [V_OSD_T], A\n    OUT P_DECK_CMD, C_ACK\n    IN A, P_DECK_STAT\n    AND A, S_TAPE\n    JZ po_notape\n    LD A, M_STOP\n    ST [V_MODE], A\n    RET\npo_notape:\n    LD A, M_NOTAPE\n    ST [V_MODE], A\n    RET\n\npower_off:\n    LD A, 0\n    ST [V_POWER], A\n    OUT P_POWER_LED, 0\n    OUT P_DECK_CMD, C_STOP\n    OUT P_OSD_CLEAR, 0\n    OUT P_SCREEN, SCR_OFF\n    RET\n\n; ---------------------------------------------------------------------------\n; poll_deck: notices tape insert/eject, auto-stop at the beginning of the tape\n; while rewinding and auto-rewind at the end of the tape.\npoll_deck:\n    IN A, P_DECK_STAT\n    ST [V_STATUS], A\n    AND A, S_CHANGED\n    JZ pd_nochange\n    OUT P_DECK_CMD, C_ACK\n    LD A, T_TAPE_STATIC         ; switching tapes: a second of snow\n    CALL set_static_min\n    LD A, [V_STATUS]\n    AND A, S_TAPE\n    JZ pd_notape\n    LD A, M_STOP                ; new tape threaded and sitting stopped\n    ST [V_MODE], A\n    RET\npd_nochange:\n    LD A, [V_STATUS]\n    AND A, S_TAPE\n    JNZ pd_tape\npd_notape:\n    LD A, M_NOTAPE\n    ST [V_MODE], A\n    RET\npd_tape:\n    LD B, [V_MODE]\n    CMP B, M_REW\n    JNZ pd_not_rew\n    LD A, [V_STATUS]\n    AND A, S_BOT\n    JZ pd_done\n    LD A, M_STOP                ; fully rewound\n    CALL set_mode\n    RET\npd_not_rew:\n    CMP B, M_PLAY\n    JZ pd_check_eot\n    CMP B, M_FF\n    JNZ pd_done\npd_check_eot:\n    LD A, [V_STATUS]\n    AND A, S_EOT\n    JZ pd_done\n    LD A, M_REW                 ; end of tape: auto-rewind\n    CALL set_mode\npd_done:\n    RET\n\n; ---------------------------------------------------------------------------\nhandle_buttons:\n    LD B, [V_EDGE]\n    LD A, B\n    AND A, B_POWER\n    JZ hb_not_power\n    CALL power_off\n    RET\nhb_not_power:\n    LD A, [V_MODE]\n    CMP A, M_NOTAPE\n    JZ hb_no_tape               ; transport buttons need a tape\n    LD A, B\n    AND A, B_EJECT\n    JNZ hb_eject\n    LD A, B\n    AND A, B_PLAY\n    JNZ hb_play\n    LD A, B\n    AND A, B_STOP\n    JNZ hb_stop\n    LD A, B\n    AND A, B_REW\n    JNZ hb_rew\n    LD A, B\n    AND A, B_FF\n    JNZ hb_ff\n    LD A, B\n    AND A, B_TRACK\n    JNZ hb_track\nhb_done:\n    RET\n\nhb_no_tape:                     ; a transport button without a tape: say so\n    LD A, B\n    AND A, B_PLAY + B_STOP + B_REW + B_FF + B_EJECT\n    JZ hb_done\n    LD A, L_NOTAPE\n    ST [V_LABEL], A\n    LD A, T_OSD_SHORT\n    ST [V_OSD_T], A\n    RET\n\nhb_eject:\n    OUT P_DECK_CMD, C_EJECT     ; poll_deck sees the change next frame\n    LD A, L_EJECT\n    ST [V_LABEL], A\n    LD A, T_OSD_SHORT\n    ST [V_OSD_T], A\n    RET\n\nhb_play:                        ; PLAY toggles play / pause\n    LD A, [V_MODE]\n    CMP A, M_PLAY\n    JNZ hbp_start\n    LD A, M_PAUSE\n    CALL set_mode\n    RET\nhbp_start:\n    CMP A, M_STOP\n    JNZ hbp_resume\n    LD A, T_PLAY_STATIC         ; starting from STOP: short burst of snow\n    CALL set_static_min\nhbp_resume:\n    LD A, M_PLAY\n    CALL set_mode\n    RET\n\nhb_stop:\n    LD A, M_STOP\n    CALL set_mode\n    RET\n\nhb_rew:                         ; second press of REW goes back to PLAY\n    LD A, [V_MODE]\n    CMP A, M_REW\n    JZ hbp_resume\n    LD A, M_REW\n    CALL set_mode\n    RET\n\nhb_ff:                          ; second press of FF goes back to PLAY\n    LD A, [V_MODE]\n    CMP A, M_FF\n    JZ hbp_resume\n    LD A, M_FF\n    CALL set_mode\n    RET\n\nhb_track:\n    OUT P_GPU_FX, FX_TRACKING\n    LD A, L_TRACK\n    ST [V_LABEL], A\n    LD A, T_OSD_SHORT\n    ST [V_OSD_T], A\n    RET\n\n; ---------------------------------------------------------------------------\n; set_mode: A = M_STOP..M_FF. Commands the deck and shows the matching label.\nset_mode:\n    ST [V_MODE], A\n    ST [V_LABEL], A\n    LD B, T_OSD\n    ST [V_OSD_T], B\n    CMP A, M_STOP\n    JNZ sm_play\n    OUT P_DECK_CMD, C_STOP\n    RET\nsm_play:\n    CMP A, M_PLAY\n    JNZ sm_pause\n    OUT P_DECK_CMD, C_PLAY\n    RET\nsm_pause:\n    CMP A, M_PAUSE\n    JNZ sm_rew\n    OUT P_DECK_CMD, C_PAUSE\n    RET\nsm_rew:\n    CMP A, M_REW\n    JNZ sm_ff\n    OUT P_DECK_CMD, C_REW\n    RET\nsm_ff:\n    OUT P_DECK_CMD, C_FF\n    RET\n\n; set_static_min: A = frames. Extends the static timer to at least A frames.\nset_static_min:\n    LD B, [V_STATIC_T]\n    CMP B, A\n    JNC ssm_done\n    ST [V_STATIC_T], A\nssm_done:\n    RET\n\n; ---------------------------------------------------------------------------\nupdate_screen:\n    LD A, [V_STATIC_T]\n    CMP A, 0\n    JZ us_mode\n    DEC A\n    ST [V_STATIC_T], A\n    LD A, SCR_STATIC\n    JMP us_set\nus_mode:\n    LD A, [V_MODE]\n    CMP A, M_NOTAPE\n    JNZ us_stop\n    LD A, SCR_STATIC            ; no tape: the TV shows snow\n    JMP us_set\nus_stop:\n    CMP A, M_STOP\n    JNZ us_tape\n    LD A, SCR_BLUE              ; stopped: VCR blue screen\n    JMP us_set\nus_tape:\n    LD A, SCR_TAPE\nus_set:\n    ST [V_SCREEN], A\n    OUT P_SCREEN, A\n    RET\n\n; ---------------------------------------------------------------------------\ndraw_osd:\n    OUT P_OSD_CLEAR, 0\n    OUT P_OSD_COLOR, COL_GREEN\n    LD A, [V_SCREEN]\n    CMP A, SCR_BLUE\n    JNZ do_label\n    OUT P_OSD_COLOR, COL_WHITE\n    OUT P_OSD_X, 15\n    OUT P_OSD_Y, 14\n    LDX str_nosignal\n    CALL print\n    OUT P_OSD_COLOR, COL_GREEN\ndo_label:\n    LD A, [V_OSD_T]\n    CMP A, 0\n    JZ do_persist\n    DEC A\n    ST [V_OSD_T], A\n    LD A, [V_LABEL]\n    JMP do_show\ndo_persist:                     ; PAUSE / REW / FF labels stay on screen\n    LD A, [V_MODE]\n    CMP A, M_PAUSE\n    JZ do_show\n    CMP A, M_REW\n    JZ do_show\n    CMP A, M_FF\n    JZ do_show\n    RET\ndo_show:\n    OUT P_OSD_X, 2\n    OUT P_OSD_Y, 2\n    CALL label_ptr\n    CALL print\n    LD A, [V_MODE]\n    CMP A, M_NOTAPE\n    JZ do_end\n    CALL draw_counter\ndo_end:\n    RET\n\n; label_ptr: A = label id -> X = string\nlabel_ptr:\n    CMP A, M_STOP\n    JNZ lp_play\n    LDX str_stop\n    RET\nlp_play:\n    CMP A, M_PLAY\n    JNZ lp_pause\n    LDX str_play\n    RET\nlp_pause:\n    CMP A, M_PAUSE\n    JNZ lp_rew\n    LDX str_pause\n    RET\nlp_rew:\n    CMP A, M_REW\n    JNZ lp_ff\n    LDX str_rew\n    RET\nlp_ff:\n    CMP A, M_FF\n    JNZ lp_eject\n    LDX str_ff\n    RET\nlp_eject:\n    CMP A, L_EJECT\n    JNZ lp_track\n    LDX str_eject\n    RET\nlp_track:\n    CMP A, L_TRACK\n    JNZ lp_notape\n    LDX str_track\n    RET\nlp_notape:\n    CMP A, L_NOTAPE\n    JNZ lp_none\n    LDX str_notape\n    RET\nlp_none:\n    LDX str_blank\n    RET\n\n; draw_counter: tape counter \"H:MM:SS\" in the bottom-right corner\ndraw_counter:\n    OUT P_OSD_X, 31\n    OUT P_OSD_Y, 26\n    IN A, P_DECK_H\n    CMP A, 10\n    JC dc_hours\n    LD A, 9\ndc_hours:\n    ADD A, '0'\n    OUT P_OSD_CHAR, A\n    OUT P_OSD_CHAR, ':'\n    IN A, P_DECK_M\n    CALL print_2d\n    OUT P_OSD_CHAR, ':'\n    IN A, P_DECK_S\n    CALL print_2d\n    RET\n\n; print: writes the zero-terminated string at X to the OSD\nprint:\n    LD A, [X]\n    JZ pr_done\n    OUT P_OSD_CHAR, A\n    INX\n    JMP print\npr_done:\n    RET\n\n; print_2d: A = 0..99, printed as two decimal digits (uses B)\nprint_2d:\n    LD B, 0\np2_tens:\n    CMP A, 10\n    JC p2_out\n    SUB A, 10\n    INC B\n    JMP p2_tens\np2_out:\n    PUSH A\n    LD A, B\n    ADD A, '0'\n    OUT P_OSD_CHAR, A\n    POP A\n    ADD A, '0'\n    OUT P_OSD_CHAR, A\n    RET\n\n; ---------------------------------------------------------------------------\nstr_play:     .db \"PLAY \\x10\", 0\nstr_pause:    .db \"PAUSE \\x13\", 0\nstr_stop:     .db \"STOP \\x12\", 0\nstr_rew:      .db \"REW \\x11\\x11\", 0\nstr_ff:       .db \"FF \\x10\\x10\", 0\nstr_eject:    .db \"EJECT \\x14\", 0\nstr_track:    .db \"TRACKING\", 0\nstr_notape:   .db \"NO TAPE\", 0\nstr_nosignal: .db \"NO SIGNAL\", 0\nstr_blank:    .db 0\n";
+const FONT = [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[1,7,31,127,31,7,1,0],[128,224,248,254,248,224,128,0],[0,126,126,126,126,126,126,0],[102,102,102,102,102,102,102,0],[24,60,126,255,0,255,255,0],[255,255,255,255,255,255,255,255],[0,60,126,126,126,126,60,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[24,60,60,24,24,0,24,0],[54,54,0,0,0,0,0,0],[54,54,127,54,127,54,54,0],[12,62,3,30,48,31,12,0],[0,99,51,24,12,102,99,0],[28,54,28,110,59,51,110,0],[6,6,3,0,0,0,0,0],[24,12,6,6,6,12,24,0],[6,12,24,24,24,12,6,0],[0,102,60,255,60,102,0,0],[0,12,12,63,12,12,0,0],[0,0,0,0,0,12,12,6],[0,0,0,63,0,0,0,0],[0,0,0,0,0,12,12,0],[96,48,24,12,6,3,1,0],[62,99,115,123,111,103,62,0],[12,14,12,12,12,12,63,0],[30,51,48,28,6,51,63,0],[30,51,48,28,48,51,30,0],[56,60,54,51,127,48,120,0],[63,3,31,48,48,51,30,0],[28,6,3,31,51,51,30,0],[63,51,48,24,12,12,12,0],[30,51,51,30,51,51,30,0],[30,51,51,62,48,24,14,0],[0,12,12,0,0,12,12,0],[0,12,12,0,0,12,12,6],[24,12,6,3,6,12,24,0],[0,0,63,0,0,63,0,0],[6,12,24,48,24,12,6,0],[30,51,48,24,12,0,12,0],[62,99,123,123,123,3,30,0],[12,30,51,51,63,51,51,0],[63,102,102,62,102,102,63,0],[60,102,3,3,3,102,60,0],[31,54,102,102,102,54,31,0],[127,70,22,30,22,70,127,0],[127,70,22,30,22,6,15,0],[60,102,3,3,115,102,124,0],[51,51,51,63,51,51,51,0],[30,12,12,12,12,12,30,0],[120,48,48,48,51,51,30,0],[103,102,54,30,54,102,103,0],[15,6,6,6,70,102,127,0],[99,119,127,127,107,99,99,0],[99,103,111,123,115,99,99,0],[28,54,99,99,99,54,28,0],[63,102,102,62,6,6,15,0],[30,51,51,51,59,30,56,0],[63,102,102,62,54,102,103,0],[30,51,7,14,56,51,30,0],[63,45,12,12,12,12,30,0],[51,51,51,51,51,51,63,0],[51,51,51,51,51,30,12,0],[99,99,99,107,127,119,99,0],[99,99,54,28,28,54,99,0],[51,51,51,30,12,12,30,0],[127,99,49,24,76,102,127,0],[30,6,6,6,6,6,30,0],[3,6,12,24,48,96,64,0],[30,24,24,24,24,24,30,0],[8,28,54,99,0,0,0,0],[0,0,0,0,0,0,0,255],[12,12,24,0,0,0,0,0],[0,0,30,48,62,51,110,0],[7,6,6,62,102,102,59,0],[0,0,30,51,3,51,30,0],[56,48,48,62,51,51,110,0],[0,0,30,51,63,3,30,0],[28,54,6,15,6,6,15,0],[0,0,110,51,51,62,48,31],[7,6,54,110,102,102,103,0],[12,0,14,12,12,12,30,0],[48,0,48,48,48,51,51,30],[7,6,102,54,30,54,103,0],[14,12,12,12,12,12,30,0],[0,0,51,127,127,107,99,0],[0,0,31,51,51,51,51,0],[0,0,30,51,51,51,30,0],[0,0,59,102,102,62,6,15],[0,0,110,51,51,62,48,120],[0,0,59,110,102,6,15,0],[0,0,62,3,30,48,31,0],[8,12,62,12,12,44,24,0],[0,0,51,51,51,51,110,0],[0,0,51,51,51,30,12,0],[0,0,99,107,127,127,54,0],[0,0,99,54,28,54,99,0],[0,0,51,51,51,62,48,31],[0,0,63,25,12,38,63,0],[56,12,12,7,12,12,56,0],[24,24,24,0,24,24,24,0],[7,12,12,56,12,12,7,0],[110,59,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]];
+
+// ===========================================================================
+// Constants
+// ===========================================================================
+const W = 320, H = 240, FPS = 30000 / 1001, CPU_HZ = 1000000, AUDIO_RATE = 22050;
+const BTN = { POWER: 1, PLAY: 2, STOP: 4, REW: 8, FF: 16, EJECT: 32, TRACK: 64 };
+const SCR = { OFF: 0, STATIC: 1, BLUE: 2, TAPE: 3 };
+const DS = { EMPTY: 0, STOP: 1, PLAY: 2, PAUSE: 3, REW: 4, FF: 5 };
+const GLYPH = { PLAY: 0x10, REV: 0x11, STOP: 0x12, PAUSE: 0x13, EJECT: 0x14, BLOCK: 0x15, DOT: 0x16 };
+const sampleAt = (frame) => Math.floor(frame * AUDIO_RATE * 1001 / 30000);
+
+// ===========================================================================
+// VCR-1 instruction set + assembler (same language as the desktop build)
+// ===========================================================================
+const OPS = [
+  [0x00, "NOP", "N", 1], [0x01, "HLT", "N", 1], [0x02, "WAI", "N", 1],
+  [0x10, "LDI", "RI", 2], [0x11, "MOV", "RR", 1], [0x12, "LDM", "RM", 3], [0x13, "STM", "RM", 3],
+  [0x14, "LDXR", "R", 2], [0x15, "STXR", "R", 2], [0x16, "LDX", "I16", 3], [0x17, "INX", "N", 1], [0x18, "DEX", "N", 1],
+  [0x20, "IN", "RI", 2], [0x21, "OUT", "RI", 2], [0x22, "OUTI", "PI", 2],
+  [0x30, "ADD", "RR", 1], [0x31, "SUB", "RR", 1], [0x32, "AND", "RR", 1], [0x33, "OR", "RR", 1], [0x34, "XOR", "RR", 1], [0x35, "CMP", "RR", 1],
+  [0x38, "ADDI", "RI", 2], [0x39, "SUBI", "RI", 2], [0x3A, "ANDI", "RI", 2], [0x3B, "ORI", "RI", 2], [0x3C, "CMPI", "RI", 2],
+  [0x40, "INC", "R", 1], [0x41, "DEC", "R", 1], [0x42, "SHL", "R", 1], [0x43, "SHR", "R", 1], [0x44, "NOT", "R", 1],
+  [0x50, "JMP", "I16", 3], [0x51, "JZ", "I16", 3], [0x52, "JNZ", "I16", 3], [0x53, "JC", "I16", 3], [0x54, "JNC", "I16", 3], [0x55, "JN", "I16", 3],
+  [0x58, "CALL", "I16", 5], [0x59, "RET", "N", 4], [0x5A, "PUSH", "R", 3], [0x5B, "POP", "R", 3], [0x5C, "PHX", "N", 4], [0x5D, "PLX", "N", 4],
+];
+const OP_BY_CODE = new Array(256).fill(null);
+for (const o of OPS) OP_BY_CODE[o[0]] = { code: o[0], name: o[1], fmt: o[2], cycles: o[3] };
+const FMT_SIZE = { N: 0, R: 1, RR: 1, RI: 2, RM: 3, I16: 2, PI: 2 };
+const FORMS = [
+  ["NOP", "", 0x00], ["HLT", "", 0x01], ["WAI", "", 0x02],
+  ["LD", "RI", 0x10], ["LD", "RR", 0x11], ["LD", "RM", 0x12], ["LD", "RX", 0x14], ["LDI", "RI", 0x10], ["MOV", "RR", 0x11],
+  ["ST", "MR", 0x13], ["ST", "XR", 0x15], ["LDX", "I", 0x16], ["INX", "", 0x17], ["DEX", "", 0x18],
+  ["IN", "RI", 0x20], ["OUT", "IR", 0x21], ["OUT", "II", 0x22],
+  ["ADD", "RR", 0x30], ["ADD", "RI", 0x38], ["SUB", "RR", 0x31], ["SUB", "RI", 0x39], ["AND", "RR", 0x32], ["AND", "RI", 0x3A],
+  ["OR", "RR", 0x33], ["OR", "RI", 0x3B], ["XOR", "RR", 0x34], ["CMP", "RR", 0x35], ["CMP", "RI", 0x3C],
+  ["INC", "R", 0x40], ["DEC", "R", 0x41], ["SHL", "R", 0x42], ["SHR", "R", 0x43], ["NOT", "R", 0x44],
+  ["JMP", "I", 0x50], ["JZ", "I", 0x51], ["JNZ", "I", 0x52], ["JC", "I", 0x53], ["JNC", "I", 0x54], ["JN", "I", 0x55],
+  ["CALL", "I", 0x58], ["RET", "", 0x59], ["PUSH", "R", 0x5A], ["POP", "R", 0x5B], ["PHX", "", 0x5C], ["PLX", "", 0x5D],
+];
+const REGS = ["A", "B", "C", "D"];
+
+function assemble(source) {
+  const errors = [], syms = new Map(), image = new Uint8Array(0x10000);
+  let maxAddr = 0;
+  const err = (line, msg) => errors.push({ line, msg });
+  const isIdStart = (c) => /[A-Za-z_.]/.test(c), isId = (c) => /[A-Za-z0-9_.]/.test(c);
+
+  function stripComment(l) {
+    let q = null;
+    for (let i = 0; i < l.length; i++) {
+      const c = l[i];
+      if (q) { if (c === "\\" && i + 1 < l.length) i++; else if (c === q) q = null; }
+      else if (c === '"' || c === "'") q = c;
+      else if (c === ";") return l.slice(0, i);
+    }
+    return l;
+  }
+  function splitOps(s) {
+    const out = []; let cur = "", q = null, depth = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) { cur += c; if (c === "\\" && i + 1 < s.length) cur += s[++i]; else if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") q = c;
+      if (c === "[" || c === "(") depth++;
+      if (c === "]" || c === ")") depth--;
+      if (c === "," && depth === 0) { out.push(cur.trim()); cur = ""; } else cur += c;
+    }
+    if (cur.trim() !== "" || out.length) out.push(cur.trim());
+    return out;
+  }
+  function escape(s, i) {  // returns [value, newIndex]
+    const c = s[i++];
+    const simple = { n: 10, t: 9, r: 13, "0": 0, "\\": 92, '"': 34, "'": 39 };
+    if (c in simple) return [simple[c], i];
+    if (c === "x") {
+      let v = 0, d = 0;
+      while (d < 2 && i < s.length && /[0-9A-Fa-f]/.test(s[i])) { v = v * 16 + parseInt(s[i++], 16); d++; }
+      return [d ? v : -1, i];
+    }
+    return [-1, i];
+  }
+  function parseString(s, line) {
+    if (s.length < 2 || s[0] !== '"' || s[s.length - 1] !== '"') { err(line, "unterminated string"); return null; }
+    const out = [];
+    for (let i = 1; i < s.length - 1;) {
+      if (s[i] === "\\") { const [v, ni] = escape(s, i + 1); if (v < 0) { err(line, "bad escape sequence in string"); return null; } out.push(v); i = ni; }
+      else out.push(s.charCodeAt(i++) & 0xFF);
+    }
+    return out;
+  }
+  function evaluate(text, line, mustResolve) {
+    let pos = 0, undef = false, e = null;
+    const ws = () => { while (pos < text.length && /\s/.test(text[pos])) pos++; };
+    function term() {
+      ws();
+      if (pos >= text.length) { e = e || "expected a value"; return 0; }
+      const c = text[pos];
+      if (c === "-") { pos++; return -term(); }
+      if (c === "<") { pos++; return term() & 0xFF; }
+      if (c === ">") { pos++; return (term() >> 8) & 0xFF; }
+      if (c === "(") { pos++; const v = expr(); ws(); if (text[pos] === ")") pos++; else e = e || "missing ')'"; return v; }
+      if (c === "'") {
+        pos++; let v;
+        if (text[pos] === "\\") { const r = escape(text, pos + 1); v = r[0]; pos = r[1]; }
+        else if (pos < text.length) v = text.charCodeAt(pos++);
+        else v = -1;
+        if (v < 0 || text[pos] !== "'") { e = e || "bad character literal"; return 0; }
+        pos++; return v;
+      }
+      if (c === "$" || c === "%" || /[0-9]/.test(c)) {
+        let base = 10;
+        if (c === "$") { base = 16; pos++; } else if (c === "%") { base = 2; pos++; }
+        else if (c === "0" && /[xX]/.test(text[pos + 1] || "")) { base = 16; pos += 2; }
+        const start = pos; let v = 0;
+        while (pos < text.length) { const d = parseInt(text[pos], 16); if (isNaN(d) || d >= base) break; v = v * base + d; pos++; }
+        if (pos === start) e = e || "malformed number";
+        return v;
+      }
+      if (isIdStart(c)) {
+        const start = pos; while (pos < text.length && isId(text[pos])) pos++;
+        const name = text.slice(start, pos);
+        if (!syms.has(name)) { undef = true; e = e || `undefined symbol '${name}'`; return 0; }
+        return syms.get(name);
+      }
+      e = e || `unexpected '${c}'`; pos++; return 0;
+    }
+    function expr() {
+      let v = term();
+      for (;;) { ws(); if (text[pos] === "+" || text[pos] === "-") { const o = text[pos++]; const r = term(); v = o === "+" ? v + r : v - r; } else return v; }
+    }
+    const v = expr(); ws();
+    if (!e && pos !== text.length) e = `unexpected trailing text in '${text}'`;
+    if (e) { if (undef && !mustResolve) return { ok: true, v: 0 }; err(line, e); return { ok: false, v: 0 }; }
+    return { ok: true, v };
+  }
+  function classify(raw) {
+    const s = raw.trim(), u = s.toUpperCase();
+    if (s.length >= 2 && s[0] === '"') return { k: "S", e: s };
+    const r = REGS.indexOf(u);
+    if (r >= 0) return { k: "R", r };
+    if (u === "X") return { k: "x" };
+    if (s.length >= 2 && s[0] === "[" && s[s.length - 1] === "]") {
+      const inner = s.slice(1, -1).trim();
+      return inner.toUpperCase() === "X" ? { k: "X" } : { k: "M", e: inner };
+    }
+    return { k: "I", e: s };
+  }
+  function define(name, value, line) {
+    if (REGS.includes(name.toUpperCase()) || name.toUpperCase() === "X") { err(line, `'${name}' is a register name and cannot be a symbol`); return; }
+    if (syms.has(name)) { err(line, `duplicate symbol '${name}'`); return; }
+    syms.set(name, value & 0xFFFF);
+  }
+
+  // parse
+  const stmts = [];
+  source.split(/\r?\n/).forEach((raw, idx) => {
+    let line = stripComment(raw).trim();
+    if (!line) return;
+    const st = { line: idx + 1, label: "", op: "", args: [] };
+    if (isIdStart(line[0]) && line[0] !== ".") {
+      let i = 0; while (i < line.length && isId(line[i])) i++;
+      if (line[i] === ":") { st.label = line.slice(0, i); line = line.slice(i + 1).trim(); }
+    }
+    if (line) {
+      const m = line.match(/^(\S+)\s*(.*)$/);
+      st.op = m[1].toUpperCase();
+      if (m[2].trim()) st.args = splitOps(m[2].trim());
+    }
+    stmts.push(st);
+  });
+
+  // pass 1
+  let pc = 0;
+  for (const st of stmts) {
+    if (st.label) define(st.label, pc, st.line);
+    st.addr = pc;
+    if (!st.op) continue;
+    if (st.op === ".ORG") {
+      const r = st.args.length === 1 ? evaluate(st.args[0], st.line, true) : (err(st.line, ".org takes one argument"), { ok: false });
+      if (r.ok) { if (r.v < 0 || r.v > 0xFFFF) err(st.line, ".org address out of range"); else pc = r.v; }
+      if (st.label) syms.set(st.label, pc);
+      st.addr = pc; continue;
+    }
+    if (st.op === ".EQU") {
+      if (st.args.length !== 2) { err(st.line, ".equ takes NAME, value"); continue; }
+      const r = evaluate(st.args[1], st.line, true);
+      if (r.ok) define(st.args[0], r.v, st.line);
+      continue;
+    }
+    if (st.op === ".DB") {
+      for (const a of st.args) { if (a[0] === '"') { const b = parseString(a, st.line); if (b) pc += b.length; } else pc += 1; }
+      continue;
+    }
+    if (st.op === ".DW") { pc += 2 * st.args.length; continue; }
+    if (st.op[0] === ".") { err(st.line, `unknown directive '${st.op}'`); continue; }
+    if (!FORMS.some((f) => f[0] === st.op)) { err(st.line, `unknown instruction '${st.op}'`); continue; }
+    st.operands = st.args.map(classify);
+    const pattern = st.operands.map((o) => o.k).join("");
+    const form = FORMS.find((f) => f[0] === st.op && f[1] === pattern);
+    if (!form) { err(st.line, `invalid operands for ${st.op}`); continue; }
+    st.opcode = form[2];
+    pc += 1 + FMT_SIZE[OP_BY_CODE[st.opcode].fmt];
+  }
+  if (errors.length) return { ok: false, errors, image, size: 0, syms };
+
+  // pass 2
+  for (const st of stmts) {
+    let at = st.addr;
+    const emit = (b) => { if (at <= 0xFFFF) { image[at++] = b & 0xFF; maxAddr = Math.max(maxAddr, at); } };
+    const v8 = (e, what) => { const r = evaluate(e, st.line, true); if (r.ok && (r.v < -128 || r.v > 255)) err(st.line, `${what} value ${r.v} does not fit in 8 bits`); return r.v & 0xFF; };
+    const v16 = (e) => { const r = evaluate(e, st.line, true); if (r.ok && (r.v < -32768 || r.v > 0xFFFF)) err(st.line, `value ${r.v} does not fit in 16 bits`); return r.v & 0xFFFF; };
+    if (st.op === ".DB") { for (const a of st.args) { if (a[0] === '"') (parseString(a, st.line) || []).forEach(emit); else emit(v8(a, "byte")); } continue; }
+    if (st.op === ".DW") { for (const a of st.args) { const v = v16(a); emit(v); emit(v >> 8); } continue; }
+    if (st.opcode === undefined) continue;
+    const o = st.operands, fmt = OP_BY_CODE[st.opcode].fmt;
+    emit(st.opcode);
+    if (fmt === "R") emit((o.length > 1 && o[0].k !== "R" ? o[1] : o[0]).r);
+    else if (fmt === "RR") emit((o[0].r << 4) | o[1].r);
+    else if (fmt === "RI") { const out = st.opcode === 0x21; const reg = out ? o[1] : o[0], imm = out ? o[0] : o[1]; const v = v8(imm.e, "immediate"); emit(reg.r); emit(v); }
+    else if (fmt === "RM") { const stf = st.opcode === 0x13; const reg = stf ? o[1] : o[0], mem = stf ? o[0] : o[1]; const a = v16(mem.e); emit(reg.r); emit(a); emit(a >> 8); }
+    else if (fmt === "I16") { const a = v16(o[0].e); emit(a); emit(a >> 8); }
+    else if (fmt === "PI") { emit(v8(o[0].e, "port")); emit(v8(o[1].e, "immediate")); }
+  }
+  return { ok: errors.length === 0, errors, image, size: maxAddr, syms };
+}
+
+// ===========================================================================
+// VCR-1 CPU
+// ===========================================================================
+class Cpu {
+  constructor(bus) { this.bus = bus; this.reset(); }
+  reset(pc = 0) {
+    this.r = new Uint8Array(4); this.pc = pc; this.sp = 0xFF00; this.x = 0; this.f = 0;
+    this.halted = false; this.waiting = false; this.fault = null; this.faultPc = 0;
+    this.total = 0; this.busy = 0; this.instr = 0;
+  }
+  raise(msg) { if (!this.fault) { this.fault = msg; this.faultPc = this.ipc; this.halted = true; } }
+  f8() { const v = this.bus.read(this.pc); this.pc = (this.pc + 1) & 0xFFFF; return v; }
+  f16() { const lo = this.f8(); return lo | (this.f8() << 8); }
+  push(v) { if (this.sp <= 0xFE00) { this.raise("stack overflow"); return; } this.sp--; this.bus.write(this.sp, v); }
+  pop() { if (this.sp >= 0xFF00) { this.raise("stack underflow"); return 0; } return this.bus.read(this.sp++); }
+  zn(v) { this.f = (this.f & ~5) | (v === 0 ? 1 : 0) | (v & 0x80 ? 4 : 0); }
+  setC(c) { this.f = c ? this.f | 2 : this.f & ~2; }
+  reg(i) { if (i < 4) return true; this.raise("bad register"); return false; }
+  alu(op, d, s) {
+    const R = this.r; let v;
+    switch (op) {
+      case 0x30: v = R[d] + s; this.setC(v > 0xFF); R[d] = v; this.zn(R[d]); break;
+      case 0x31: this.setC(R[d] < s); R[d] = R[d] - s; this.zn(R[d]); break;
+      case 0x35: this.setC(R[d] < s); this.zn((R[d] - s) & 0xFF); break;
+      case 0x32: R[d] &= s; this.zn(R[d]); break;
+      case 0x33: R[d] |= s; this.zn(R[d]); break;
+      case 0x34: R[d] ^= s; this.zn(R[d]); break;
+    }
+  }
+  step() {
+    if (this.halted || this.waiting) { this.total++; return 1; }
+    this.ipc = this.pc;
+    if (this.pc >= 0xFF00) { this.raise("exec from I/O page"); this.total++; return 1; }
+    const code = this.f8(), info = OP_BY_CODE[code];
+    if (!info) { this.raise("illegal opcode"); this.total++; return 1; }
+    const R = this.r;
+    switch (code) {
+      case 0x00: break;
+      case 0x01: this.halted = true; break;
+      case 0x02: this.waiting = true; break;
+      case 0x10: { const r = this.f8(), v = this.f8(); if (this.reg(r)) { R[r] = v; this.zn(v); } break; }
+      case 0x11: { const rr = this.f8(), d = rr >> 4, s = rr & 15; if (this.reg(d) && this.reg(s)) { R[d] = R[s]; this.zn(R[d]); } break; }
+      case 0x12: { const r = this.f8(), a = this.f16(); if (this.reg(r)) { R[r] = this.bus.read(a); this.zn(R[r]); } break; }
+      case 0x13: { const r = this.f8(), a = this.f16(); if (this.reg(r)) this.bus.write(a, R[r]); break; }
+      case 0x14: { const r = this.f8(); if (this.reg(r)) { R[r] = this.bus.read(this.x); this.zn(R[r]); } break; }
+      case 0x15: { const r = this.f8(); if (this.reg(r)) this.bus.write(this.x, R[r]); break; }
+      case 0x16: this.x = this.f16(); break;
+      case 0x17: this.x = (this.x + 1) & 0xFFFF; break;
+      case 0x18: this.x = (this.x - 1) & 0xFFFF; break;
+      case 0x20: { const r = this.f8(), p = this.f8(); if (this.reg(r)) { R[r] = this.bus.read(0xFF00 | p); this.zn(R[r]); } break; }
+      case 0x21: { const r = this.f8(), p = this.f8(); if (this.reg(r)) this.bus.write(0xFF00 | p, R[r]); break; }
+      case 0x22: { const p = this.f8(), v = this.f8(); this.bus.write(0xFF00 | p, v); break; }
+      case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: case 0x35: {
+        const rr = this.f8(), d = rr >> 4, s = rr & 15; if (this.reg(d) && this.reg(s)) this.alu(code, d, R[s]); break;
+      }
+      case 0x38: case 0x39: case 0x3A: case 0x3B: case 0x3C: {
+        const r = this.f8(), v = this.f8(); if (this.reg(r)) this.alu([0x30, 0x31, 0x32, 0x33, 0x35][code - 0x38], r, v); break;
+      }
+      case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: {
+        const r = this.f8(); if (!this.reg(r)) break;
+        if (code === 0x40) R[r]++; else if (code === 0x41) R[r]--;
+        else if (code === 0x42) { this.setC(R[r] & 0x80); R[r] <<= 1; }
+        else if (code === 0x43) { this.setC(R[r] & 1); R[r] >>= 1; }
+        else R[r] = ~R[r];
+        this.zn(R[r]); break;
+      }
+      case 0x50: this.pc = this.f16(); break;
+      case 0x51: { const a = this.f16(); if (this.f & 1) this.pc = a; break; }
+      case 0x52: { const a = this.f16(); if (!(this.f & 1)) this.pc = a; break; }
+      case 0x53: { const a = this.f16(); if (this.f & 2) this.pc = a; break; }
+      case 0x54: { const a = this.f16(); if (!(this.f & 2)) this.pc = a; break; }
+      case 0x55: { const a = this.f16(); if (this.f & 4) this.pc = a; break; }
+      case 0x58: { const a = this.f16(); this.push(this.pc >> 8); this.push(this.pc & 0xFF); if (!this.fault) this.pc = a; break; }
+      case 0x59: { const lo = this.pop(), hi = this.pop(); if (!this.fault) this.pc = lo | (hi << 8); break; }
+      case 0x5A: { const r = this.f8(); if (this.reg(r)) this.push(R[r]); break; }
+      case 0x5B: { const r = this.f8(); if (this.reg(r)) { const v = this.pop(); if (!this.fault) R[r] = v; } break; }
+      case 0x5C: this.push(this.x >> 8); this.push(this.x & 0xFF); break;
+      case 0x5D: { const lo = this.pop(), hi = this.pop(); if (!this.fault) this.x = lo | (hi << 8); break; }
+    }
+    this.instr++; this.total += info.cycles; this.busy += info.cycles;
+    return info.cycles;
+  }
+  run(cycles) {
+    let used = 0;
+    while (used < cycles) {
+      if (this.halted || this.waiting) { this.total += cycles - used; used = cycles; break; }
+      used += this.step();
+    }
+    return used;
+  }
+  describe() {
+    const h = (v, n) => v.toString(16).toUpperCase().padStart(n, "0");
+    const R = this.r, f = this.f;
+    return `PC=${h(this.pc, 4)} SP=${h(this.sp, 4)} X=${h(this.x, 4)}\nA=${h(R[0], 2)} B=${h(R[1], 2)} C=${h(R[2], 2)} D=${h(R[3], 2)} F=${f & 4 ? "N" : "-"}${f & 2 ? "C" : "-"}${f & 1 ? "Z" : "-"}${this.waiting ? " WAI" : ""}${this.fault ? " FAULT: " + this.fault : ""}`;
+  }
+}
+
+// ===========================================================================
+// Tape deck, GPU registers, machine
+// ===========================================================================
+class Deck {
+  constructor() { this.tape = null; this.state = DS.EMPTY; this.pos = 0; this.shuttle = 12; this.changed = false; }
+  get hasTape() { return this.state !== DS.EMPTY; }
+  insert(tape) { this.tape = tape; this.pos = 0; this.state = DS.STOP; this.changed = true; }
+  eject() { if (!this.hasTape) return; this.tape = null; this.pos = 0; this.state = DS.EMPTY; this.changed = true; }
+  tick() {
+    const n = this.tape ? this.tape.frames : 0;
+    if (this.state === DS.PLAY) this.pos = Math.min(this.pos + 1, n);
+    else if (this.state === DS.FF) this.pos = Math.min(this.pos + this.shuttle, n);
+    else if (this.state === DS.REW) this.pos = Math.max(this.pos - this.shuttle, 0);
+  }
+  command(c) {
+    if (c === 6) { this.changed = false; return; }
+    if (!this.hasTape) return;
+    if (c === 5) this.eject();
+    else this.state = [DS.STOP, DS.PLAY, DS.PAUSE, DS.REW, DS.FF][c] ?? this.state;
+  }
+  status() {
+    let s = 0;
+    if (this.hasTape) {
+      s |= 1;
+      if (this.state === DS.PLAY || this.state === DS.REW || this.state === DS.FF) s |= 2;
+      if (this.pos === 0) s |= 4;
+      if (this.pos >= this.tape.frames) s |= 8;
+    }
+    if (this.changed) s |= 16;
+    return s;
+  }
+  counter() {
+    const secs = this.pos / FPS, total = Math.floor(secs);
+    return { h: Math.min(Math.floor(total / 3600), 255), m: Math.floor(total / 60) % 60, s: total % 60, f: Math.floor((secs - total) * FPS) };
+  }
+}
+
+class GpuRegs {
+  constructor() { this.reset(); this.tracking = 0; }
+  reset() {
+    this.ch = new Uint8Array(1200).fill(32); this.col = new Uint8Array(1200);
+    this.shownCh = new Uint8Array(1200).fill(32); this.shownCol = new Uint8Array(1200);
+    this.screen = 0; this.shownScreen = 0; this.cx = 0; this.cy = 0; this.color = 0;
+  }
+  latch() { this.shownCh.set(this.ch); this.shownCol.set(this.col); this.shownScreen = this.screen; }
+  write(p, v) {
+    switch (p) {
+      case 0x20: this.screen = v <= 3 ? v : 0; break;
+      case 0x21: this.cx = v % 40; break;
+      case 0x22: this.cy = v % 30; break;
+      case 0x23: { const i = this.cy * 40 + this.cx; this.ch[i] = v; this.col[i] = this.color; if (++this.cx >= 40) { this.cx = 0; this.cy = (this.cy + 1) % 30; } break; }
+      case 0x24: this.ch.fill(32); this.col.fill(0); break;
+      case 0x25: this.color = v; break;
+      case 0x26: if (v & 1) this.tracking++; break;
+    }
+  }
+}
+
+class Machine {
+  constructor() {
+    this.ram = new Uint8Array(0x10000); this.touched = new Uint8Array(0x10000);
+    this.cpu = new Cpu(this); this.deck = new Deck(); this.gpu = new GpuRegs();
+    this.held = 0; this.edge = 0; this.led = false; this.frame = 0; this.clock = 0; this.debt = 0;
+    this.romViolations = 0; this.onVsync = null; this.romBytes = 0;
+  }
+  boot(source) {
+    const res = assemble(source);
+    if (!res.ok) throw new Error("Firmware: " + res.errors.map((e) => `line ${e.line}: ${e.msg}`).join("; "));
+    this.ram.fill(0); this.touched.fill(0);
+    this.ram.set(res.image.subarray(0, 0x8000));
+    this.romBytes = res.size;
+    this.gpu.reset(); this.held = this.edge = 0; this.led = false;
+    this.cpu.reset(0); this.frame = 0; this.clock = 0; this.debt = 0;
+  }
+  read(a) {
+    if (a >= 0xFF00) return this.ioRead(a & 0xFF);
+    return this.ram[a];
+  }
+  write(a, v) {
+    v &= 0xFF;
+    if (a <= 0x7FFF) { this.romViolations++; return; }
+    if (a >= 0xFF00) { this.ioWrite(a & 0xFF, v); return; }
+    this.ram[a] = v; this.touched[a] = 1;
+  }
+  ioRead(p) {
+    const d = this.deck;
+    switch (p) {
+      case 0x00: return this.held;
+      case 0x01: { const v = this.edge; this.edge = 0; return v; }
+      case 0x02: return this.frame & 0xFF;
+      case 0x03: return (this.frame >> 8) & 0xFF;
+      case 0x04: return this.led ? 1 : 0;
+      case 0x10: return d.status();
+      case 0x12: return d.counter().h;
+      case 0x13: return d.counter().m;
+      case 0x14: return d.counter().s;
+      case 0x15: return d.counter().f;
+      case 0x16: return d.shuttle;
+      case 0x20: return this.gpu.screen;
+      default: return 0xFF;
+    }
+  }
+  ioWrite(p, v) {
+    if (p === 0x04) this.led = v !== 0;
+    else if (p === 0x11) this.deck.command(v);
+    else if (p === 0x16) this.deck.shuttle = Math.max(1, v);
+    else if (p >= 0x20 && p <= 0x2F) this.gpu.write(p, v);
+  }
+  press(b) { this.edge |= b & ~this.held; this.held |= b; }
+  release(b) { this.held &= ~b; }
+  tap(b) { this.press(b); this.release(b); }
+  frameEnd(n) { return Math.floor((n + 1) * 100100 / 3); }
+  vsync() {
+    this.gpu.latch(); this.deck.tick(); this.frame++; this.cpu.waiting = false;
+    if (this.onVsync) this.onVsync();
+  }
+  advance(sec) {
+    sec = Math.min(Math.max(sec, 0), 0.25);
+    this.debt += sec * CPU_HZ;
+    const budget = Math.floor(this.debt); this.debt -= budget;
+    const target = this.clock + budget; let frames = 0;
+    while (this.clock < target) {
+      const end = this.frameEnd(this.frame), stop = Math.min(end, target);
+      this.clock += this.cpu.run(stop - this.clock);
+      if (this.clock >= end) { this.vsync(); frames++; }
+    }
+    return frames;
+  }
+  ramUsed() { let n = 0; for (let a = 0x8000; a < 0xFF00; a++) n += this.touched[a]; return n; }
+}
+
+// ===========================================================================
+// Pixels: 8x8 font, drawing helpers
+// ===========================================================================
+const fb = new ImageData(W, H);
+const px = new Uint32Array(fb.data.buffer);  // 0xAABBGGRR (little-endian)
+const rgb = (r, g, b) => (0xFF000000 | ((b & 255) << 16) | ((g & 255) << 8) | (r & 255)) >>> 0;
+const cl = (v) => (v < 0 ? 0 : v > 255 ? 255 : v | 0);
+const COL = { GREEN: rgb(60, 255, 80), WHITE: rgb(240, 240, 240), RED: rgb(255, 60, 50), BLUE: rgb(16, 40, 200), BLACK: rgb(0, 0, 0), GREY: rgb(120, 120, 120) };
+const OSD_COLORS = [COL.GREEN, COL.WHITE, COL.RED];
+
+function fillRect(x, y, w, h, c) {
+  const x0 = Math.max(0, x), y0 = Math.max(0, y), x1 = Math.min(W, x + w), y1 = Math.min(H, y + h);
+  for (let yy = y0; yy < y1; yy++) px.fill(c, yy * W + x0, yy * W + Math.max(x0, x1));
+}
+function blendRect(x, y, w, h, a) {  // darken toward black by alpha 0..255
+  const x0 = Math.max(0, x), y0 = Math.max(0, y), x1 = Math.min(W, x + w), y1 = Math.min(H, y + h), k = (255 - a) / 255;
+  for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) {
+    const c = px[yy * W + xx];
+    px[yy * W + xx] = rgb((c & 255) * k, ((c >> 8) & 255) * k, ((c >> 16) & 255) * k);
+  }
+}
+function glyph(x, y, ch, c, scale) {
+  const g = FONT[ch & 0x7F];
+  for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (g[r] & (1 << b)) fillRect(x + b * scale, y + r * scale, scale, scale, c);
+}
+function text(x, y, s, c, scale = 1, shadow = true) {
+  let cx = x;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    if (ch !== 32) { if (shadow) glyph(cx + scale, y + scale, ch, COL.BLACK, scale); glyph(cx, y, ch, c, scale); }
+    cx += 8 * scale;
+  }
+}
+const centered = (y, s, c, scale = 1) => text(((W - s.length * 8 * scale) / 2) | 0, y, s, c, scale);
+const asciiUpper = (s) => Array.from(s).map((ch) => { const c = ch.charCodeAt(0); return c >= 32 && c < 127 ? ch.toUpperCase() : "?"; }).join("");
+const ellipsize = (s, n) => (s.length <= n ? s : s.slice(0, n - 3) + "...");
+
+// ===========================================================================
+// Picture passes: snow, VHS noise, interlace
+// ===========================================================================
+let seed = 0xC0FFEE;
+const rnd = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+const unit = () => (rnd() >>> 8) / 16777216;
+
+function drawSnow(frame) {
+  const rollH = 48, rollY = H - ((frame * 3) % (H + rollH));
+  for (let y = 0; y < H; y++) {
+    const bias = (rnd() % 41) - 20, inRoll = y >= rollY && y < rollY + rollH;
+    let prev = 128, o = y * W;
+    for (let x = 0; x < W; x++) {
+      let v = rnd() >>> 24; v = (v * 5 + prev * 3) >> 3; prev = v; v += bias;
+      if (inRoll) v = (v * 3 / 5) | 0;
+      const t = (rnd() & 15) - 8;
+      px[o + x] = rgb(cl(v + t), cl(v), cl(v - t));
+    }
+  }
+}
+
+class VhsNoise {
+  constructor() {
+    this.intensity = 0.15; this.trackAge = 1 << 20; this.search = false;
+    this.bandY = 0.85; this.band = 0; this.bandTimer = 90; this.bandLen = 0; this.bandAge = 0;
+    this.Y = new Float32Array(W); this.I = new Float32Array(W); this.Q = new Float32Array(W); this.T = new Float32Array(W);
+  }
+  startTracking() { this.trackAge = 0; }
+  get tracking() { return this.trackAge < 180; }
+  effective() {
+    const i = this.intensity, t = this.trackAge;
+    if (t >= 180) return i;
+    if (t < 12) return Math.min(1, i * 1.4 + 0.05);
+    if (t < 120) return i * 0.15;
+    return i * (0.15 + 0.85 * (t - 120) / 60);
+  }
+  updateBand(e) {
+    if (this.bandLen > 0) {
+      this.bandAge++;
+      this.band = Math.sin((this.bandAge / this.bandLen) * Math.PI);
+      this.bandY -= 0.0015; if (this.bandY < 0.72) this.bandY = 0.97;
+      if (this.bandAge >= this.bandLen) { this.bandLen = 0; this.band = 0; this.bandTimer = Math.max(15, ((120 + rnd() % 240) * (1.2 - e)) | 0); }
+    } else if (--this.bandTimer <= 0 && e > 0.01) {
+      this.bandLen = 45 + (rnd() % 75); this.bandAge = 0; this.bandY = 0.8 + unit() * 0.15;
+    }
+  }
+  // src: RGBA bytes of the clean tape picture; writes the degraded picture into px.
+  apply(src, frame) {
+    if (this.trackAge < (1 << 20)) this.trackAge++;
+    const e = this.effective(); this.updateBand(e);
+    const soften = Math.min(1, 0.45 + e * 0.8), cr = Math.max(1, Math.round(1.5 + e * 5)), delay = Math.round(1 + e * 2.5);
+    const grain = e * 14, jitter = e * 1.6, bandC = (this.bandY * H) | 0, bandHalf = (3 + e * 8) | 0, hs = 3 + ((e * 5) | 0);
+    const phase = unit() * 100, { Y, I, Q, T } = this;
+    for (let y = 0; y < H; y++) {
+      let shift = jitter * (0.6 * Math.sin(y * 0.05 + phase) + 0.4 * (unit() * 2 - 1));
+      let band = 0;
+      if (this.band > 0 && Math.abs(y - bandC) <= bandHalf) {
+        band = this.band * (1 - Math.abs(y - bandC) / (bandHalf + 1));
+        shift += band * (2 + e * 14) * (unit() * 2 - 1);
+      }
+      const fb2 = H - 1 - y;
+      if (fb2 < hs) shift += (1 - fb2 / hs) * (2 + e * 10) + (unit() * 2 - 1) * (0.5 + e * 2);
+      const row = y * W * 4;
+      for (let x = 0; x < W; x++) {
+        const sx = x - shift, x0 = Math.floor(sx), f = sx - x0;
+        const a = (x0 < 0 ? 0 : x0 > W - 1 ? W - 1 : x0) * 4 + row, b = (x0 + 1 < 0 ? 0 : x0 + 1 > W - 1 ? W - 1 : x0 + 1) * 4 + row;
+        const r = src[a] * (1 - f) + src[b] * f, g = src[a + 1] * (1 - f) + src[b + 1] * f, bl = src[a + 2] * (1 - f) + src[b + 2] * f;
+        Y[x] = 0.299 * r + 0.587 * g + 0.114 * bl; I[x] = 0.596 * r - 0.274 * g - 0.322 * bl; Q[x] = 0.211 * r - 0.523 * g + 0.312 * bl;
+      }
+      for (let x = 0; x < W; x++) { const l = Y[x > 0 ? x - 1 : 0], c = Y[x], rr = Y[x < W - 1 ? x + 1 : W - 1]; T[x] = c + soften * ((l + 2 * c + rr) * 0.25 - c); }
+      Y.set(T);
+      for (const ch of [I, Q]) {
+        let acc = 0; for (let k = -cr; k <= cr; k++) acc += ch[k < 0 ? 0 : k > W - 1 ? W - 1 : k];
+        const n = 1 / (2 * cr + 1);
+        for (let x = 0; x < W; x++) { T[x] = acc * n; acc += ch[Math.min(W - 1, x + cr + 1)] - ch[Math.max(0, x - cr)]; }
+        for (let x = W - 1; x >= 0; x--) ch[x] = T[Math.max(0, x - delay)];
+      }
+      const o = y * W;
+      for (let x = 0; x < W; x++) {
+        let yy = Y[x]; if (grain > 0) yy += (unit() * 2 - 1) * grain;
+        const ii = I[x] * 0.92, qq = Q[x] * 0.92;
+        px[o + x] = rgb(cl(yy + 0.956 * ii + 0.621 * qq), cl(yy - 0.272 * ii - 0.647 * qq), cl(yy - 1.106 * ii + 1.703 * qq));
+      }
+      if (band > 0) {
+        const p = band * (0.05 + e * 0.35);
+        for (let x = 0; x < W; x++) if (unit() < p) { const len = 1 + (rnd() % 6), v = 150 + (rnd() % 106); for (let k = 0; k < len && x + k < W; k++) px[o + x + k] = rgb(v, v, v); x += len; }
+      }
+    }
+    if (this.search) {
+      for (let b = 0; b < 2; b++) {
+        const cy = (frame * 7 + b * (H / 2)) % H;
+        for (let y = cy - 5; y <= cy + 5; y++) { if (y < 0 || y >= H) continue; for (let x = 0; x < W; x++) if (unit() < 0.5) { const v = rnd() & 255; px[y * W + x] = rgb(v, v, v); } }
+      }
+    }
+    const expected = e * 0.35;
+    let flecks = unit() < expected ? 1 + (unit() < expected ? 1 : 0) : 0;
+    while (flecks--) { const y = rnd() % H, x = rnd() % W, len = 4 + (rnd() % 18); for (let k = 0; k < len && x + k < W; k++) { const v = 200 + (rnd() % 56); px[y * W + x + k] = rgb(v, v, v); } }
+  }
+}
+
+class Interlace {
+  constructor() { this.enabled = false; this.prev = null; }
+  apply(frame) {
+    if (!this.enabled) { this.prev = null; return; }
+    if (!this.prev) { this.prev = new Uint32Array(px); return; }
+    const field = frame & 1;
+    for (let y = 0; y < H; y++) {
+      const o = y * W;
+      if ((y & 1) !== field) for (let x = 0; x < W; x++) { const c = this.prev[o + x]; px[o + x] = rgb((c & 255) * 15 / 16, ((c >> 8) & 255) * 15 / 16, ((c >> 16) & 255) * 15 / 16); }
+      this.prev.set(px.subarray(o, o + W), o);
+    }
+  }
+}
+
+function drawTestPattern(dst, frame) {  // dst: RGBA bytes
+  const bars = [[192, 192, 192], [192, 192, 0], [0, 192, 192], [0, 192, 0], [192, 0, 192], [192, 0, 0], [0, 0, 192]];
+  const split = (H * 2 / 3) | 0, u = new Uint32Array(dst.buffer);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (y < split) { const b = bars[(x * 7 / W) | 0]; u[y * W + x] = rgb(b[0], b[1], b[2]); }
+    else { const v = (x * 255 / (W - 1)) | 0; u[y * W + x] = rgb(v, v, v); }
+  }
+  const travel = W - 40, pos = frame % (2 * travel), bx = 20 + (pos < travel ? pos : 2 * travel - pos);
+  for (let y = split + 14; y < split + 34; y++) u.fill(rgb(255, 255, 255), y * W + bx - 10, y * W + bx + 10);
+  const s = "RETROTUBE 90", x0 = (W - s.length * 8) / 2;
+  for (let i = 0; i < s.length; i++) {
+    const g = FONT[s.charCodeAt(i)];
+    for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (g[r] & (1 << b)) {
+      u[(split - 23 + r) * W + x0 + i * 8 + b + 1] = rgb(0, 0, 0);
+      u[(split - 24 + r) * W + x0 + i * 8 + b] = rgb(255, 255, 255);
+    }
+  }
+}
+
+// ===========================================================================
+// CRT output: WebGL shader (curvature, scanlines, vignette, phosphor glow)
+// ===========================================================================
+class Crt {
+  constructor(canvas) {
+    this.canvas = canvas;
+    const gl = canvas.getContext("webgl", { antialias: false, preserveDrawingBuffer: true }) || null;
+    this.gl = gl;
+    if (!gl) { this.ctx2d = canvas.getContext("2d"); this.tmp = document.createElement("canvas"); this.tmp.width = W; this.tmp.height = H; return; }
+    const vs = `attribute vec2 p; varying vec2 uv; void main(){ uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }`;
+    const fs = `precision mediump float;
+      varying vec2 uv; uniform sampler2D tex; uniform vec2 res; uniform float curv, scan, vig, glow, outH;
+      vec3 px(vec2 t){ return texture2D(tex, t).rgb; }
+      void main(){
+        vec2 p = uv * 2.0 - 1.0;
+        vec2 c = vec2(p.x * (1.0 + curv * p.y * p.y), p.y * (1.0 + curv * p.x * p.x));
+        if (abs(c.x) >= 1.0 || abs(c.y) >= 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
+        vec2 t = vec2((c.x + 1.0) * 0.5, (1.0 - c.y) * 0.5);
+        float sy = t.y * res.y - 0.5; float y0 = floor(sy); float f = sy - y0;
+        vec3 a = px(vec2(t.x, (clamp(y0, 0.0, res.y - 1.0) + 0.5) / res.y));
+        vec3 b = px(vec2(t.x, (clamp(y0 + 1.0, 0.0, res.y - 1.0) + 0.5) / res.y));
+        float s = 0.3;
+        float b0 = exp(-f * f / (2.0 * s * s)), b1 = exp(-(1.0 - f) * (1.0 - f) / (2.0 * s * s));
+        float w0 = mix(1.0 - f, b0, scan), w1 = mix(f, b1, scan);
+        vec3 col = (a * w0 + b * w1) * (1.0 + 0.3 * scan);
+        vec2 d = 2.5 / res; vec3 g = vec3(0.0);
+        g += pow(px(t + vec2( d.x, 0.0)), vec3(2.0)); g += pow(px(t + vec2(-d.x, 0.0)), vec3(2.0));
+        g += pow(px(t + vec2(0.0,  d.y)), vec3(2.0)); g += pow(px(t + vec2(0.0, -d.y)), vec3(2.0));
+        g += pow(px(t + d), vec3(2.0)); g += pow(px(t - d), vec3(2.0));
+        g += pow(px(t + vec2(d.x, -d.y)), vec3(2.0)); g += pow(px(t + vec2(-d.x, d.y)), vec3(2.0));
+        col += g / 8.0 * glow;
+        float r2 = dot(c, c);
+        float v = max(0.0, 1.0 - vig * 0.5 * r2 * r2);
+        float edge = min(1.0 - abs(c.x), 1.0 - abs(c.y));
+        v *= smoothstep(0.0, 3.0 / outH, edge);
+        gl_FragColor = vec4(col * v, 1.0);
+      }`;
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(prog);
+    gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    this.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    this.u = {}; for (const n of ["res", "curv", "scan", "vig", "glow", "outH"]) this.u[n] = gl.getUniformLocation(prog, n);
+    gl.uniform2f(this.u.res, W, H); gl.uniform1f(this.u.curv, 0.035); gl.uniform1f(this.u.scan, 0.55); gl.uniform1f(this.u.vig, 0.3); gl.uniform1f(this.u.glow, 0.22);
+  }
+  resize() {
+    const r = this.canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(320, Math.round(r.width * dpr)), h = Math.round(w * 3 / 4);
+    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
+  }
+  draw(image) {
+    if (!this.gl) {
+      this.tmp.getContext("2d").putImageData(image, 0, 0);
+      this.ctx2d.imageSmoothingEnabled = true;
+      this.ctx2d.drawImage(this.tmp, 0, 0, this.canvas.width, this.canvas.height);
+      return;
+    }
+    const gl = this.gl;
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.uniform1f(this.u.outH, this.canvas.height);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+}
+
+// ===========================================================================
+// Sound: static hiss, tape hiss (-30 dB), wow & flutter, programme routing
+// ===========================================================================
+class Sound {
+  constructor() { this.ctx = null; this.progRms = 0.1; this.level = 0.15; }
+  ensure() {  // call from a user gesture
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const ctx = this.ctx = new AC();
+        this.master = ctx.createGain(); this.master.connect(ctx.destination);
+        this.input = ctx.createGain();
+        this.analyser = ctx.createAnalyser(); this.analyser.fftSize = 2048; this.input.connect(this.analyser);
+        this.delay = ctx.createDelay(0.1); this.delay.delayTime.value = 0.02;
+        this.prog = ctx.createGain(); this.prog.gain.value = 0;
+        this.input.connect(this.delay); this.delay.connect(this.prog); this.prog.connect(this.master);
+        this.wowOsc = ctx.createOscillator(); this.wowOsc.frequency.value = 0.55; this.wowGain = ctx.createGain();
+        this.flutOsc = ctx.createOscillator(); this.flutOsc.frequency.value = 6.5; this.flutGain = ctx.createGain();
+        this.wowOsc.connect(this.wowGain); this.wowGain.connect(this.delay.delayTime);
+        this.flutOsc.connect(this.flutGain); this.flutGain.connect(this.delay.delayTime);
+        this.wowOsc.start(); this.flutOsc.start();
+        const noise = this.makeNoise();
+        this.staticGain = ctx.createGain(); this.staticGain.gain.value = 0;
+        this.hissGain = ctx.createGain(); this.hissGain.gain.value = 0;
+        for (const g of [this.staticGain, this.hissGain]) {
+          const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true; src.loopStart = Math.random();
+          src.connect(g); g.connect(this.master); src.start();
+        }
+        this.buf = new Float32Array(2048);
+        this.setLevel(this.level);
+      }
+      if (this.ctx.state === "suspended") this.ctx.resume();
+    } catch (e) { console.warn("audio unavailable", e); }
+  }
+  get running() { return !!this.ctx && this.ctx.state === "running"; }
+  now() { return this.running ? this.ctx.currentTime : performance.now() / 1000; }
+  makeNoise() {
+    const n = this.ctx.sampleRate * 2, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0);
+    let lp = 0, hp = 0, acc = 0;
+    for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; lp += 0.6 * (w - lp); hp += 0.02 * (lp - hp); d[i] = lp - hp; acc += d[i] * d[i]; }
+    const k = 1 / Math.sqrt(acc / n); for (let i = 0; i < n; i++) d[i] *= k;  // unit RMS
+    return b;
+  }
+  setLevel(level) {
+    this.level = level;
+    if (!this.ctx) return;
+    const depth = Math.min(0.004, 0.0012 * level / 0.15);
+    this.wowGain.gain.value = depth * 0.8 / (2 * Math.PI * 0.55);
+    this.flutGain.gain.value = depth * 0.2 / (2 * Math.PI * 6.5);
+  }
+  hissDb() { return this.level <= 0 ? -Infinity : Math.min(-18, -30 + 20 * Math.log10(this.level / 0.15)); }
+  // Called every video frame with what the TV is showing.
+  update(staticOn, programOn) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.staticGain.gain.setTargetAtTime(staticOn ? 0.063 : 0, t, 0.02);
+    this.prog.gain.setTargetAtTime(programOn ? 1 : 0, t, 0.02);
+    if (programOn) {
+      this.analyser.getFloatTimeDomainData(this.buf);
+      let acc = 0; for (let i = 0; i < this.buf.length; i++) acc += this.buf[i] * this.buf[i];
+      const r = Math.sqrt(acc / this.buf.length);
+      this.progRms += (r - this.progRms) * 0.02;  // slow: the hiss stays steady
+    }
+    const hiss = programOn && this.level > 0 ? Math.pow(10, this.hissDb() / 20) * Math.max(this.progRms, 0.05) : 0;
+    this.hissGain.gain.setTargetAtTime(hiss, t, 0.05);
+  }
+}
+const sound = new Sound();
+
+// ===========================================================================
+// Tapes: built-in test tape, .vhs files, and movies played by the browser
+// ===========================================================================
+// Sources clocked by the audio clock (test tape and .vhs).
+class ClockedSource {
+  constructor() { this.playing = false; this.f0 = 0; this.t0 = 0; this.kind = ""; this.blocked = false; }
+  start(frame) { this.playing = true; this.f0 = frame; this.kind = sound.running ? "audio" : "perf"; this.t0 = sound.now() + 0.06; this.onStart(frame); }
+  pause() { if (!this.playing) return; this.f0 = Math.floor(this.clock()); this.playing = false; this.onPause(); }
+  clock() {
+    if (!this.playing) return this.f0;
+    if ((sound.running ? "audio" : "perf") !== this.kind) { const f = this.f0 + Math.max(0, (performance.now() / 1000 - this.t0)) * FPS; this.start(Math.floor(f)); }
+    return this.f0 + Math.max(0, sound.now() - this.t0) * FPS;
+  }
+  onStart() {} onPause() {} show() {} destroy() { this.pause(); }
+  bufferInfo() { return "-"; }
+}
+
+class TestTape extends ClockedSource {
+  constructor() { super(); this.title = "T-120 TEST TAPE"; this.frames = Math.floor(2 * 3600 * FPS); this.img = new ImageData(W, H); }
+  onStart() {
+    if (!sound.ctx) return;
+    this.osc = sound.ctx.createOscillator(); this.osc.frequency.value = 1000;
+    this.g = sound.ctx.createGain(); this.g.gain.value = 0.1;  // -20 dBFS line-up tone
+    this.osc.connect(this.g); this.g.connect(sound.input); this.osc.start(this.t0);
+  }
+  onPause() { try { this.osc && this.osc.stop(); } catch (e) {} this.osc = null; }
+  draw(frame) { drawTestPattern(this.img.data, frame); return this.img.data; }
+}
+
+// A .vhs tape recorded by the desktop app: JPEG frames + PCM, read lazily.
+class VhsTape extends ClockedSource {
+  static async open(file) {
+    const head = new Uint8Array(await file.slice(0, 256).arrayBuffer());
+    const dv = new DataView(head.buffer);
+    const u64 = (d, o) => d.getUint32(o, true) + d.getUint32(o + 4, true) * 4294967296;
+    if (head.length < 256 || String.fromCharCode(...head.subarray(0, 4)) !== "VHS1") throw new Error("not a VHS1 tape");
+    if (dv.getUint16(4, true) !== 1) throw new Error("unsupported tape version");
+    const frames = dv.getUint32(28, true), idxOff = u64(dv, 40), idxCount = dv.getUint32(48, true);
+    if (dv.getUint16(8, true) !== 320 || dv.getUint16(10, true) !== 240 || dv.getUint32(20, true) !== AUDIO_RATE || idxCount !== frames || frames === 0)
+      throw new Error("unsupported tape format");
+    const idxBytes = 8 + 16 * idxCount;
+    if (idxOff < 256 || idxOff + idxBytes > file.size) throw new Error("tape index is missing");
+    const ib = new DataView(await file.slice(idxOff, idxOff + idxBytes).arrayBuffer());
+    if (ib.getUint32(0, true) !== 0x58444E49 /* INDX */) throw new Error("tape index is damaged");
+    const t = new VhsTape();
+    t.file = file; t.frames = frames; t.indexOffset = idxOff;
+    t.off = new Float64Array(frames); t.vb = new Uint32Array(frames); t.as = new Uint32Array(frames);
+    for (let i = 0; i < frames; i++) { const o = 8 + i * 16; t.off[i] = u64(ib, o); t.vb[i] = ib.getUint32(o + 8, true); t.as[i] = ib.getUint32(o + 12, true); }
+    let tl = head.subarray(56, 184); const z = tl.indexOf(0); if (z >= 0) tl = tl.subarray(0, z);
+    t.title = new TextDecoder().decode(tl) || file.name;
+    return t;
+  }
+  constructor() { super(); this.cache = new Map(); this.pending = new Set(); this.last = null; this.sources = []; this.gen = 0; this.canvas = document.createElement("canvas"); this.canvas.width = W; this.canvas.height = H; this.ctx = this.canvas.getContext("2d", { willReadFrequently: true }); }
+  want(f) {
+    if (f < 0 || f >= this.frames || this.cache.has(f) || this.pending.has(f)) return;
+    this.pending.add(f);
+    const start = this.off[f] + 12, blob = this.file.slice(start, start + this.vb[f], "image/jpeg");
+    const done = (img) => { this.pending.delete(f); if (img) this.cache.set(f, img); this.trim(f); };
+    if (window.createImageBitmap) createImageBitmap(blob).then(done, () => done(null));
+    else { const url = URL.createObjectURL(blob), im = new Image(); im.onload = () => { URL.revokeObjectURL(url); done(im); }; im.onerror = () => { URL.revokeObjectURL(url); done(null); }; im.src = url; }
+  }
+  trim(center) {
+    if (this.cache.size <= 48) return;
+    const keys = [...this.cache.keys()].sort((a, b) => Math.abs(b - center) - Math.abs(a - center));
+    for (const k of keys.slice(0, this.cache.size - 48)) { const im = this.cache.get(k); if (im && im.close) im.close(); this.cache.delete(k); }
+  }
+  prefetch(frame, stride) { for (let k = 0; k < 10; k++) this.want(frame + k * stride); }
+  show(frame, stride = 1) { this.prefetch(frame, stride); }
+  draw(frame) {
+    this.prefetch(frame, 1);
+    let img = this.cache.get(frame);
+    if (!img) { for (let k = 1; k < 30 && !img; k++) img = this.cache.get(frame - k); }
+    if (img) this.last = img;
+    if (this.last) this.ctx.drawImage(this.last, 0, 0, W, H); else { this.ctx.fillStyle = "#000"; this.ctx.fillRect(0, 0, W, H); }
+    return this.ctx.getImageData(0, 0, W, H).data;
+  }
+  onStart(frame) { this.gen++; this.nextSeg = frame; this.schedule(); }
+  onPause() { this.gen++; for (const s of this.sources) { try { s.stop(); } catch (e) {} } this.sources = []; }
+  schedule() {
+    if (!this.playing || !sound.ctx) return;
+    const gen = this.gen;
+    while (this.nextSeg < this.frames && this.nextSeg < this.clock() + 90) {
+      const seg = this.nextSeg, end = Math.min(this.frames, seg + 30);
+      this.nextSeg = end;
+      const a = this.off[seg], b = end < this.frames ? this.off[end] : this.indexOffset;
+      this.file.slice(a, b).arrayBuffer().then((ab) => {
+        if (gen !== this.gen) return;
+        const dv = new DataView(ab); let p = 0, total = 0;
+        for (let f = seg; f < end; f++) total += this.as[f];
+        const abuf = sound.ctx.createBuffer(1, Math.max(1, total), AUDIO_RATE), out = abuf.getChannelData(0);
+        let w = 0;
+        for (let f = seg; f < end; f++) {
+          p += 12 + this.vb[f] + 12;
+          for (let i = 0; i < this.as[f]; i++, p += 2) out[w++] = dv.getInt16(p, true) / 32768;
+        }
+        const when = this.t0 + (sampleAt(seg) - sampleAt(this.f0)) / AUDIO_RATE;
+        const src = sound.ctx.createBufferSource(); src.buffer = abuf; src.connect(sound.input);
+        const now = sound.ctx.currentTime;
+        if (when >= now) src.start(when); else { const skip = now - when; if (skip < abuf.duration) src.start(now, skip); }
+        this.sources.push(src); src.onended = () => { this.sources = this.sources.filter((s) => s !== src); };
+      });
+    }
+  }
+  tick() { this.schedule(); }
+  bufferInfo() { return `${this.cache.size} frames decoded`; }
+}
+
+// A movie the phone's browser can decode, played through the VCR.
+class MovieTape {
+  static open(file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const v = document.getElementById("hiddenVideo");
+      const url = URL.createObjectURL(file);
+      const t = new MovieTape(v, url, file.name);
+      let meta = false;
+      const fail = () => { cleanup(); URL.revokeObjectURL(url); v.removeAttribute("src"); v.load(); reject(new Error("this phone can't decode the video")); };
+      const ready = () => {
+        if (!meta || v.readyState < 2) return;
+        cleanup();
+        t.frames = Math.max(1, Math.floor((isFinite(v.duration) ? v.duration : 3600 * 4) * FPS));
+        resolve(t);
+      };
+      const onMeta = () => { meta = true; onProgress(0.5); if (v.currentTime === 0) v.currentTime = 0.001; ready(); };
+      const cleanup = () => { v.removeEventListener("loadedmetadata", onMeta); v.removeEventListener("loadeddata", ready); v.removeEventListener("canplay", ready); v.removeEventListener("seeked", ready); v.removeEventListener("error", fail); };
+      v.addEventListener("loadedmetadata", onMeta); v.addEventListener("loadeddata", ready); v.addEventListener("canplay", ready); v.addEventListener("seeked", ready); v.addEventListener("error", fail);
+      v.muted = false; v.playsInline = true; v.preload = "auto"; v.src = url; v.load();
+      setTimeout(() => { if (!meta) fail(); }, 20000);
+    });
+  }
+  constructor(video, url, name) {
+    this.v = video; this.url = url; this.title = name.replace(/\.[^.]+$/, ""); this.playing = false; this.blocked = false; this.lastSeek = 0;
+    this.canvas = document.createElement("canvas"); this.canvas.width = W; this.canvas.height = H;
+    this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
+    if (sound.ctx && !video._routed) { try { sound.ctx.createMediaElementSource(video).connect(sound.input); video._routed = true; } catch (e) {} }
+  }
+  route() { if (sound.ctx && !this.v._routed) { try { sound.ctx.createMediaElementSource(this.v).connect(sound.input); this.v._routed = true; } catch (e) {} } }
+  start(frame) {
+    this.route();
+    const t = frame / FPS;
+    if (Math.abs(this.v.currentTime - t) > 0.3) this.v.currentTime = t;
+    this.playing = true;
+    const p = this.v.play();
+    if (p && p.then) p.then(() => { this.blocked = false; }, () => { this.blocked = true; });
+  }
+  resume() { this.route(); const p = this.v.play(); if (p && p.then) p.then(() => { this.blocked = false; }, () => {}); }
+  pause() { if (!this.playing) return; this.playing = false; this.v.pause(); }
+  clock() { return this.v.ended ? this.frames : this.v.currentTime * FPS; }
+  show(frame) {
+    const now = performance.now(), t = frame / FPS;
+    if (!this.v.seeking && now - this.lastSeek > 120 && Math.abs(this.v.currentTime - t) > 0.08) { this.v.currentTime = Math.min(t, this.v.duration || t); this.lastSeek = now; }
+  }
+  draw() {
+    const v = this.v, ctx = this.ctx;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    if (v.videoWidth) {
+      const dar = v.videoWidth / v.videoHeight;
+      let w = W, h = Math.round(W / dar / 2) * 2;
+      if (dar < 4 / 3) { h = H; w = Math.round(H * dar / 2) * 2; }
+      try { ctx.drawImage(v, (W - w) / 2, (H - h) / 2, w, h); } catch (e) {}
+    }
+    return ctx.getImageData(0, 0, W, H).data;
+  }
+  tick() {}
+  bufferInfo() {
+    const v = this.v; let ahead = 0;
+    for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= v.currentTime && v.buffered.end(i) >= v.currentTime) ahead = v.buffered.end(i) - v.currentTime;
+    return `${ahead.toFixed(1)} s buffered`;
+  }
+  destroy() { this.pause(); this.v.removeAttribute("src"); this.v.load(); URL.revokeObjectURL(this.url); }
+}
+
+// Identify a file by its first bytes, not its name.
+async function detect(file) {
+  if (!file || file.size === 0) return { kind: "empty", reason: "the file is empty" };
+  const d = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const tag = (o) => String.fromCharCode(d[o], d[o + 1], d[o + 2], d[o + 3]);
+  if (d.length >= 4 && tag(0) === "VHS1") return { kind: "vhs" };
+  if (d.length >= 8 && tag(4) === "ftyp") {
+    const box = ((d[0] << 24) | (d[1] << 16) | (d[2] << 8) | d[3]) >>> 0;
+    let brandOk = d.length >= 12; for (let i = 8; i < 12 && brandOk; i++) brandOk = d[i] >= 0x20 && d[i] < 0x7F;
+    if (brandOk && box >= 16 && box <= 4096 && box <= file.size) return { kind: "mp4" };
+    return { kind: "unknown", reason: "the MP4 header is damaged" };
+  }
+  return { kind: "unknown", reason: "this is not a video file" };
+}
+
+// ===========================================================================
+// The TV set: machine + GPU + tapes + sound
+// ===========================================================================
+const machine = new Machine();
+const vhs = new VhsNoise();
+const interlace = new Interlace();
+const crt = new Crt(document.getElementById("screen"));
+let source = null;                 // tape in the deck
+let mode = "tv";                   // tv | recording | bad
+let recTitle = "", recProgress = 0, badName = "", badReason = "", badUntil = 0;
+let playAt = 0, sliderUntil = 0, showDebug = false, offFrames = 1000, lastScreen = 0;
+let trackingSeen = 0, composeDue = true;
+
+machine.onVsync = () => {
+  const deck = machine.deck;
+  if (machine.gpu.tracking !== trackingSeen) { trackingSeen = machine.gpu.tracking; vhs.startTracking(); }
+  vhs.search = deck.state === DS.FF || deck.state === DS.REW;
+  if (!deck.hasTape) { if (source) { source.destroy(); source = null; updateSlot(); } }
+  else if (source) {
+    if (deck.state === DS.PLAY) {
+      if (!source.playing) source.start(deck.pos);
+      else deck.pos = Math.min(Math.max(0, Math.floor(source.clock())), deck.tape.frames);
+    } else {
+      if (source.playing) source.pause();
+      if (deck.state !== DS.STOP) source.show(deck.pos, deck.state === DS.REW ? -deck.shuttle : deck.state === DS.FF ? deck.shuttle : 1);
+    }
+    source.tick && source.tick();
+  }
+  const scr = machine.gpu.shownScreen;
+  sound.update(scr === SCR.STATIC, scr === SCR.TAPE && deck.state === DS.PLAY && mode === "tv");
+  if (playAt && machine.frame >= playAt) { playAt = 0; if (deck.hasTape && deck.state !== DS.PLAY) machine.tap(BTN.PLAY); }
+  composeDue = true;
+};
+
+function compose() {
+  const g = machine.gpu, scr = g.shownScreen, f = machine.frame, deck = machine.deck;
+  if (scr === SCR.OFF) {
+    if (lastScreen !== SCR.OFF) offFrames = 0;
+    lastScreen = scr; px.fill(COL.BLACK);
+    if (offFrames < 14) {
+      const k = offFrames < 6 ? 1 - (offFrames + 1) / 6 : 0;
+      const half = Math.max(1, (k * H / 2) | 0), wHalf = offFrames < 6 ? W / 2 : ((1 - (offFrames - 6) / 8) ** 2 * W / 2) | 0;
+      fillRect(W / 2 - wHalf, H / 2 - (offFrames < 6 ? half : 0), wHalf * 2, offFrames < 6 ? half * 2 : 1, rgb(230, 230, 230));
+    }
+    offFrames++;
+    return;
+  }
+  lastScreen = scr;
+  if (scr === SCR.STATIC) drawSnow(f);
+  else if (scr === SCR.BLUE) px.fill(COL.BLUE);
+  else if (scr === SCR.TAPE && source && deck.state !== DS.STOP) vhs.apply(source.draw(Math.min(deck.pos, deck.tape.frames - 1)), f);
+  else px.fill(COL.BLACK);
+
+  for (let i = 0; i < 1200; i++) {  // firmware OSD: blocky text with a dark outline
+    const ch = g.shownCh[i]; if (ch === 32 || ch === 0) continue;
+    const x0 = (i % 40) * 8, y0 = ((i / 40) | 0) * 8, gl = FONT[ch & 0x7F], c = OSD_COLORS[g.shownCol[i]] || COL.GREEN;
+    for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (gl[r] & (1 << b))
+      for (let dy = 0; dy <= 1; dy++) for (let dx = 0; dx <= 1; dx++) if ((dx || dy) && x0 + b + dx < W && y0 + r + dy < H) px[(y0 + r + dy) * W + x0 + b + dx] = rgb(0, 24, 0);
+    for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (gl[r] & (1 << b)) px[(y0 + r) * W + x0 + b] = c;
+  }
+  drawOverlay(f);
+  interlace.apply(f);
+}
+
+function drawOverlay(f) {
+  const now = performance.now();
+  if (mode === "recording") {
+    px.fill(rgb(8, 8, 12));
+    if (((f / 15) | 0) % 2 === 0) text(16, 16, String.fromCharCode(GLYPH.DOT), COL.RED);
+    text(28, 16, "REC", COL.RED);
+    centered(80, "RECORDING...", COL.GREEN, 2);
+    centered(108, ellipsize(asciiUpper(recTitle), 36), COL.WHITE);
+    const bw = 240, bx = (W - bw) / 2, by = 132;
+    fillRect(bx - 2, by - 2, bw + 4, 14, COL.GREEN); fillRect(bx, by, bw, 10, rgb(8, 8, 12));
+    fillRect(bx + 1, by + 1, ((bw - 2) * recProgress) | 0, 8, COL.GREEN);
+    centered(152, `${(recProgress * 100) | 0}%`, COL.GREEN);
+    return;
+  }
+  if (mode === "bad") {
+    px.fill(COL.BLUE);
+    centered(72, "TAPE NOT", COL.WHITE, 2); centered(92, "RECOGNIZED", COL.WHITE, 2);
+    centered(128, ellipsize(asciiUpper(badName), 36), COL.GREEN); centered(144, ellipsize(asciiUpper(badReason), 38), COL.GREEN);
+    centered(184, "INSERT AN .MP4, .MOV OR .VHS", COL.WHITE); centered(196, "TAPE TO PLAY IT", COL.WHITE);
+    return;
+  }
+  if (now < sliderUntil) {
+    const pct = Math.round(vhs.intensity * 100), filled = Math.round(vhs.intensity * 20);
+    let s = "NOISE "; for (let i = 0; i < 20; i++) s += i < filled ? String.fromCharCode(GLYPH.BLOCK) : "-";
+    s += " " + pct + "%";
+    blendRect(8, H - 52, W - 16, 16, 120); centered(H - 48, s, COL.GREEN);
+  } else if (!machine.deck.hasTape && machine.led && machine.frame > 50 && machine.gpu.shownScreen === SCR.STATIC && ((f / 45) | 0) % 4 !== 3) {
+    blendRect(0, H - 64, W, 40, 150);
+    centered(H - 58, "INSERT A TAPE:", COL.WHITE); centered(H - 44, "TAP HERE TO PICK A MOVIE", COL.GREEN);
+  }
+  if (source && source.blocked && machine.deck.state === DS.PLAY) {
+    blendRect(0, H / 2 - 18, W, 28, 160); centered(H / 2 - 12, "TAP THE SCREEN TO START SOUND", COL.WHITE);
+  }
+}
+
+// ===========================================================================
+// Inserting tapes
+// ===========================================================================
+function insert(src) {
+  if (source) { source.destroy(); source = null; }
+  if (machine.deck.hasTape) machine.deck.eject();
+  source = src;
+  machine.deck.insert({ title: src.title, frames: src.frames });
+  if (machine.frame > 0 && !machine.led) machine.tap(BTN.POWER);
+  mode = "tv";
+  playAt = Math.max(machine.frame + 26, 40);
+  updateSlot();
+}
+function notRecognized(name, reason) { mode = "bad"; badName = name; badReason = reason; badUntil = performance.now() + 6000; }
+
+async function openFile(file) {
+  if (!file) return;
+  sound.ensure();
+  if (machine.frame > 0 && !machine.led) machine.tap(BTN.POWER);
+  let d;
+  try { d = await detect(file); } catch (e) { d = { kind: "unknown", reason: "the file could not be read" }; }
+  if (d.kind === "vhs") {
+    try { insert(await VhsTape.open(file)); } catch (e) { notRecognized(file.name, e.message); }
+  } else if (d.kind === "mp4") {
+    mode = "recording"; recTitle = file.name.replace(/\.[^.]+$/, ""); recProgress = 0.05;
+    const started = performance.now();
+    const anim = setInterval(() => { recProgress = Math.min(0.95, recProgress + 0.03); }, 60);
+    try {
+      const t = await MovieTape.open(file, (p) => { recProgress = Math.max(recProgress, p); });
+      const wait = Math.max(0, 1600 - (performance.now() - started));
+      await new Promise((r) => setTimeout(r, wait));
+      clearInterval(anim); recProgress = 1;
+      await new Promise((r) => setTimeout(r, 250));
+      insert(t);
+    } catch (e) { clearInterval(anim); notRecognized(file.name, e.message); }
+  } else {
+    notRecognized(file.name, d.reason);
+  }
+}
+
+// ===========================================================================
+// Front panel
+// ===========================================================================
+const $ = (id) => document.getElementById(id);
+const fileInput = $("file");
+function pickFile() { sound.ensure(); fileInput.click(); }
+fileInput.addEventListener("change", () => { const f = fileInput.files[0]; fileInput.value = ""; openFile(f); });
+
+function pressButton(name) {
+  sound.ensure();
+  if (mode === "bad") { mode = "tv"; if (name === "EJECT") return; }
+  if (mode === "recording") return;
+  const deck = machine.deck;
+  if (name === "PLAY") {
+    if (!deck.hasTape) { pickFile(); return; }
+    if (source && source.blocked && deck.state === DS.PLAY) { source.resume(); return; }
+    // Start the movie inside the tap so phones allow sound; the deck follows.
+    if (source && source instanceof MovieTape && deck.state !== DS.PLAY) source.start(deck.pos);
+  }
+  machine.tap(BTN[name]);
+}
+for (const b of document.querySelectorAll(".key")) b.addEventListener("click", () => pressButton(b.dataset.btn));
+
+$("screen").addEventListener("click", () => {
+  sound.ensure();
+  if (mode === "bad") { mode = "tv"; return; }
+  if (mode === "recording") return;
+  if (!machine.deck.hasTape) pickFile(); else pressButton("PLAY");
+});
+$("testTape").addEventListener("click", () => { sound.ensure(); insert(new TestTape()); });
+$("power").addEventListener("click", () => { sound.ensure(); machine.tap(BTN.POWER); });
+const noise = $("noise");
+function setNoise(v) {
+  v = Math.max(0, Math.min(100, Math.round(v)));
+  noise.value = v; $("noiseOut").textContent = v + "%";
+  vhs.intensity = v / 100; sound.setLevel(v / 100); sliderUntil = performance.now() + 2500;
+}
+noise.addEventListener("input", () => setNoise(+noise.value));
+$("interlace").addEventListener("click", (e) => { interlace.enabled = !interlace.enabled; e.currentTarget.setAttribute("aria-pressed", interlace.enabled); });
+function toggleDebug() { showDebug = !showDebug; $("debug").hidden = !showDebug; $("debugBtn").setAttribute("aria-pressed", showDebug); }
+$("debugBtn").addEventListener("click", toggleDebug);
+const tvEl = $("tv");
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (tvEl.requestFullscreen) tvEl.requestFullscreen().catch(() => {});
+    else if (tvEl.webkitRequestFullscreen) tvEl.webkitRequestFullscreen();
+  } catch (e) {}
+}
+if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) $("fullBtn").hidden = true;
+$("fullBtn").addEventListener("click", toggleFullscreen);
+document.addEventListener("pointerdown", () => { sound.ensure(); if (source && source.blocked && source.resume) source.resume(); }, { capture: true });
+
+const KEYS = { " ": "PLAY", s: "STOP", S: "STOP", ArrowLeft: "REW", ArrowRight: "FF", t: "TRACK", T: "TRACK", Escape: "EJECT", p: "POWER", P: "POWER" };
+document.addEventListener("keydown", (e) => {
+  if (e.target === noise && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+  if (e.repeat || e.metaKey || e.altKey) return;
+  if (e.ctrlKey) { if (e.key === "o") { e.preventDefault(); pickFile(); } return; }
+  if (e.target.closest && e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;  // buttons handle their own
+  const k = e.key;
+  if (k === "F1") { e.preventDefault(); toggleDebug(); }
+  else if (k === "f" || k === "F") toggleFullscreen();
+  else if (k === "n" || k === "N") { sliderUntil = performance.now() + 2500; noise.focus(); }
+  else if (k === "i" || k === "I") $("interlace").click();
+  else if (k === "l" || k === "L") $("testTape").click();
+  else if (k === "+" || k === "=") setNoise(+noise.value + 5);
+  else if (k === "-") setNoise(+noise.value - 5);
+  else if (KEYS[k]) { e.preventDefault(); if (KEYS[k] === "POWER") { sound.ensure(); machine.tap(BTN.POWER); } else pressButton(KEYS[k]); }
+});
+for (const t of ["dragover", "drop"]) tvEl.addEventListener(t, (e) => { e.preventDefault(); if (t === "drop") openFile(e.dataTransfer.files[0]); });
+
+// ===========================================================================
+// VCR display, slot label, debug
+// ===========================================================================
+let vfdKey = "";
+function updateSlot() {
+  const l = $("slotLabel");
+  l.textContent = source ? source.title : "No tape";
+  l.classList.toggle("loaded", !!source);
+}
+function updatePanel(fps) {
+  const d = machine.deck, on = machine.led;
+  $("pled").classList.toggle("on", on);
+  $("power").setAttribute("aria-pressed", on);
+  const icons = { [DS.EMPTY]: "", [DS.STOP]: "■", [DS.PLAY]: "▶", [DS.PAUSE]: "‖", [DS.REW]: "◀◀", [DS.FF]: "▶▶" };
+  const c = d.counter();
+  const count = !on ? "" : d.hasTape ? `${Math.min(c.h, 9)}:${String(c.m).padStart(2, "0")}:${String(c.s).padStart(2, "0")}` : "-:--:--";
+  const key = [on, d.state, count, mode, vhs.tracking].join("|");
+  if (key !== vfdKey) {
+    vfdKey = key;
+    $("vfdMode").textContent = on ? icons[d.state] || " " : " ";
+    $("vfdCount").textContent = count || " ";
+    $("vfdCount").classList.toggle("off", !on);
+    $("vfdVcr").className = on ? "" : "off";
+    $("vfdSp").className = on && d.hasTape ? "" : "off";
+    $("vfdRec").className = mode === "recording" ? "rec" : "off";
+    $("vfdTrk").className = on && vhs.tracking ? "" : "off";
+    $("vfdHifi").className = on && d.state === DS.PLAY ? "" : "off";
+  }
+  if (showDebug) {
+    const cpu = machine.cpu, busy = cpu.total ? (100 * cpu.busy / cpu.total).toFixed(1) : "0";
+    $("debug").textContent =
+      `FPS      ${fps.toFixed(1)} (video ${FPS.toFixed(2)})\n` +
+      `CPU      VCR-1 @ 1 MHz, ${busy}% busy, ${cpu.instr} instr\n${cpu.describe()}\n` +
+      `RAM      ${machine.ramUsed()} B of 64 KB used, ROM ${machine.romBytes} B\n` +
+      `BUFFER   ${source ? source.bufferInfo() : "no tape"}\n` +
+      `FRAME    ${machine.frame}  tape ${d.hasTape ? d.pos + " / " + d.tape.frames : "-"}\n` +
+      `NOISE    ${Math.round(vhs.intensity * 100)}% (now ${Math.round(vhs.effective() * 100)}%), hiss ${isFinite(sound.hissDb()) ? sound.hissDb().toFixed(0) + " dB" : "off"}\n` +
+      `AUDIO    ${sound.ctx ? sound.ctx.state : "tap to enable"}`;
+  }
+}
+
+// ===========================================================================
+// Main loop
+// ===========================================================================
+machine.boot(FIRMWARE_SRC);
+crt.resize();
+window.addEventListener("resize", () => crt.resize());
+let last = performance.now(), fpsAcc = 0, fpsFrames = 0, fps = 0;
+function loop(now) {
+  const dt = (now - last) / 1000; last = now;
+  machine.advance(dt);
+  if (mode === "bad" && performance.now() > badUntil) mode = "tv";
+  if (composeDue || mode !== "tv") { compose(); crt.draw(fb); composeDue = false; fpsFrames++; }
+  fpsAcc += dt; if (fpsAcc >= 1) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; }
+  updatePanel(fps);
+  if (machine.cpu.fault) console.error("VCR-1 fault:", machine.cpu.fault);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+try { if (navigator.wakeLock) document.addEventListener("click", () => navigator.wakeLock.request("screen").catch(() => {}), { once: true }); } catch (e) {}
+window.__rt90 = { machine, openFile, insert, TestTape, vhs, sound, get source() { return source; }, get mode() { return mode; } };
+</script>
