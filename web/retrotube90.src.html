@@ -129,6 +129,16 @@ body {
 .notes { font-size: 14px; line-height: 1.55; color: var(--silk-dim); max-width: 65ch; margin: 4px auto 0; display: grid; gap: 6px; }
 .notes p { margin: 0; }
 .notes kbd { font-family: var(--font-silk); font-weight: 600; font-size: 12px; letter-spacing: 0.06em; color: var(--silk); background: #222227; border: 1px solid #34343b; border-radius: 4px; padding: 0 5px; }
+.snaps { background: #17171a; border: 1px solid #2a2a30; border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+.snaps h2 { margin: 0; font-family: var(--font-silk); font-weight: 700; font-size: 17px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silk); text-wrap: balance; }
+.snaps p { margin: 0; font-size: 14px; color: var(--silk-dim); }
+.snaps .sheet { width: 100%; max-width: 100%; border-radius: 6px; display: block; }
+.snaps .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.snaps figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.snaps figure img { width: 100%; max-width: 100%; border-radius: 4px; display: block; }
+.snaps figcaption { font-family: var(--font-silk); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--silk-dim); }
+.tour-status { font-family: var(--font-vfd); font-size: 20px; color: var(--vfd); min-height: 1.2em; }
+.chip:disabled { opacity: 0.5; cursor: progress; }
 #hiddenVideo { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
 
 @media (max-width: 520px) {
@@ -177,11 +187,22 @@ body {
       <button class="chip" id="interlace" type="button" aria-pressed="false">Interlace</button>
       <button class="chip" id="debugBtn" type="button" aria-pressed="false">Debug</button>
       <button class="chip" id="fullBtn" type="button">Fullscreen</button>
+      <button class="chip" id="snapBtn" type="button">Snapshot</button>
+      <button class="chip" id="tourBtn" type="button">Snapshot tour</button>
     </div>
+    <div class="tour-status" id="tourStatus" aria-live="polite"></div>
+  </section>
+
+  <section class="snaps" id="snaps" hidden aria-label="Snapshots">
+    <h2 id="snapsTitle">Snapshots</h2>
+    <p>Long-press an image (or right-click it) to save it to your phone.</p>
+    <img class="sheet" id="sheet" alt="Contact sheet of the snapshot tour" hidden>
+    <div class="thumbs" id="thumbs"></div>
   </section>
 
   <div class="notes">
     <p>Tap <b>Insert tape</b> and pick a movie from your phone (MP4 or MOV), or a <b>.vhs</b> tape made by the desktop app. The VCR records it, threads the tape and presses play. Tap the screen to play or pause.</p>
+    <p><b>Snapshot tour</b> runs the tape through play, pause, search, tracking, noise and the VCR screens and makes a contact sheet. <b>Snapshot</b> grabs the screen as it is.</p>
     <p>Keyboard: <kbd>Space</kbd> play/pause, <kbd>S</kbd> stop, <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> rewind/fast-forward, <kbd>T</kbd> tracking, <kbd>N</kbd> noise, <kbd>F</kbd> fullscreen, <kbd>F1</kbd> debug, <kbd>Esc</kbd> eject, <kbd>I</kbd> interlace, <kbd>P</kbd> power, <kbd>L</kbd> test tape. You can also drag a file onto the TV.</p>
   </div>
 </main>
@@ -1394,6 +1415,134 @@ function updatePanel(fps) {
 }
 
 // ===========================================================================
+// Snapshots and the snapshot tour
+// ===========================================================================
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let touring = false;
+const shotList = [];
+
+function grabScreen() {
+  const t = document.createElement("canvas"); t.width = 640; t.height = 480;
+  t.getContext("2d").drawImage($("screen"), 0, 0, 640, 480);
+  return t;
+}
+function tapeName() { return source ? source.title : "No tape"; }
+function counterText() { const c = machine.deck.counter(); return machine.deck.hasTape ? `${Math.min(c.h, 9)}:${String(c.m).padStart(2, "0")}:${String(c.s).padStart(2, "0")}` : ""; }
+function addThumb(canvas, label) {
+  $("snaps").hidden = false;
+  const fig = document.createElement("figure"), img = document.createElement("img"), cap = document.createElement("figcaption");
+  canvas.toBlob((b) => { img.src = URL.createObjectURL(b); }, "image/png");
+  img.alt = `${tapeName()}: ${label}`; cap.textContent = label;
+  fig.append(img, cap); $("thumbs").prepend(fig);
+}
+function snapshot() {
+  const c = grabScreen(), label = `${labelForState()} ${counterText()}`.trim();
+  shotList.push({ canvas: c, label }); addThumb(c, label);
+}
+function labelForState() {
+  const n = { [DS.EMPTY]: "No tape", [DS.STOP]: "Stop", [DS.PLAY]: "Play", [DS.PAUSE]: "Pause", [DS.REW]: "Rewind", [DS.FF]: "Fast-forward" };
+  return n[machine.deck.state];
+}
+function seekTo(frame) {
+  const d = machine.deck; frame = Math.max(0, Math.min(frame, d.tape.frames - 1));
+  d.pos = frame;
+  if (source) { if (source.playing) source.start(frame); else source.show(frame); }
+}
+
+async function makeSheet(shots, title) {
+  try { await document.fonts.load('30px "VT323"'); await document.fonts.load('20px "Michroma"'); } catch (e) {}
+  const cols = 2, cw = 640, ch = 480, cap = 46, head = 110, gap = 16, rows = Math.ceil(shots.length / cols);
+  const c = document.createElement("canvas");
+  c.width = cols * cw + (cols + 1) * gap; c.height = head + rows * (ch + cap + gap) + gap;
+  const x = c.getContext("2d");
+  x.fillStyle = "#141417"; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = "#e9ebf0"; x.font = '44px "VT323", monospace'; x.fillText(title.toUpperCase(), gap, 58);
+  x.fillStyle = "#7ef0e2"; x.font = '15px "Michroma", sans-serif';
+  x.fillText(`RETROTUBE 90  ·  VCR-1 SNAPSHOT TOUR  ·  ${shots.length} FRAMES  ·  NOISE ${Math.round(vhs.intensity * 100)}%`, gap, 92);
+  shots.forEach((s, i) => {
+    const cx = gap + (i % cols) * (cw + gap), cy = head + Math.floor(i / cols) * (ch + cap + gap);
+    x.fillStyle = "#000"; x.fillRect(cx, cy, cw, ch);
+    x.drawImage(s.canvas, cx, cy, cw, ch);
+    x.fillStyle = "#1d1d22"; x.fillRect(cx, cy + ch, cw, cap);
+    x.fillStyle = "#7ef0e2"; x.font = '30px "VT323", monospace';
+    x.fillText(`${String(i + 1).padStart(2, "0")}  ${s.label}`, cx + 12, cy + ch + 32);
+  });
+  return c;
+}
+
+async function snapshotTour() {
+  if (touring) return;
+  sound.ensure();
+  const d = machine.deck;
+  if (!d.hasTape || mode !== "tv") { pickFile(); return; }
+  touring = true; $("tourBtn").disabled = true; $("snapBtn").disabled = true;
+  const status = $("tourStatus"), shots = [], savedNoise = vhs.intensity, savedIl = interlace.enabled;
+  const snap = async (label, wait) => {
+    status.textContent = `${shots.length + 1}/14  ${label}`;
+    await sleep(wait);
+    const c = grabScreen(); shots.push({ canvas: c, label }); addThumb(c, label);
+  };
+  const press = (b) => pressButton(b);
+  try {
+    if (!machine.led) { machine.tap(BTN.POWER); await sleep(1800); }
+    if (d.state !== DS.PLAY) { press("PLAY"); await sleep(1200); }
+    // Start somewhere past the opening titles.
+    if (d.pos < d.tape.frames * 0.1) seekTo(Math.floor(d.tape.frames * 0.22));
+    press("STOP"); await sleep(700);
+    await snap("Stop: blue screen, NO SIGNAL", 300);
+    press("PLAY");
+    await snap("Play: 0.5 s burst of static", 230);
+    await snap(`Play ▶ with tape counter`, 1100);
+    await snap("Playing at 15% VHS noise", 2600);
+    press("PLAY");
+    await snap("Pause ‖ still frame", 900);
+    press("PLAY"); await sleep(900);
+    press("FF");
+    await snap("Fast-forward ▶▶ picture search", 900);
+    press("FF"); await sleep(700);
+    press("REW");
+    await snap("Rewind ◀◀ picture search", 700);
+    press("REW"); await sleep(1500);
+    press("TRACK");
+    await snap("Tracking adjust", 300);
+    await snap("After tracking: clean picture", 1500);
+    setNoise(55);
+    await snap("Noise slider at 55%", 900);
+    setNoise(100);
+    await snap("Worn-out tape: noise 100%", 1600);
+    setNoise(savedNoise * 100); sliderUntil = 0;
+    interlace.enabled = true; $("interlace").setAttribute("aria-pressed", "true");
+    await snap("Interlaced look", 1500);
+    interlace.enabled = savedIl; $("interlace").setAttribute("aria-pressed", String(savedIl));
+    sliderUntil = 0;
+    await snap("Back to normal", 1400);
+    machine.tap(BTN.POWER);
+    await snap("Power off: the picture collapses", 90);
+    await sleep(700);
+    machine.tap(BTN.POWER); await sleep(1900);
+    press("PLAY");
+
+    status.textContent = "Making the contact sheet...";
+    const sheet = await makeSheet(shots, tapeName());
+    sheet.toBlob((b) => {
+      const img = $("sheet"); img.src = URL.createObjectURL(b); img.hidden = false;
+      img.alt = `${tapeName()} on RetroTube 90: contact sheet of ${shots.length} snapshots`;
+    }, "image/png");
+    $("snapsTitle").textContent = `${tapeName()} on RetroTube 90`;
+    $("snaps").hidden = false;
+    status.textContent = `Done: ${shots.length} snapshots and a contact sheet below.`;
+    $("snaps").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    status.textContent = "The tour stopped: " + e.message;
+  } finally {
+    setNoise(savedNoise * 100); sliderUntil = 0;
+    touring = false; $("tourBtn").disabled = false; $("snapBtn").disabled = false;
+  }
+}
+$("snapBtn").addEventListener("click", () => { sound.ensure(); snapshot(); });
+$("tourBtn").addEventListener("click", snapshotTour);
+
+// ===========================================================================
 // Main loop
 // ===========================================================================
 machine.boot(FIRMWARE_SRC);
@@ -1412,5 +1561,5 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 try { if (navigator.wakeLock) document.addEventListener("click", () => navigator.wakeLock.request("screen").catch(() => {}), { once: true }); } catch (e) {}
-window.__rt90 = { machine, openFile, insert, TestTape, vhs, sound, get source() { return source; }, get mode() { return mode; } };
+window.__rt90 = { snapshotTour, machine, openFile, insert, TestTape, vhs, sound, get source() { return source; }, get mode() { return mode; } };
 </script>
