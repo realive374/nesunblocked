@@ -25,6 +25,10 @@ public:
     virtual ~PicturePass() = default;
     virtual const char* name() const = 0;
     virtual void apply(Framebuffer& fb, const FrameContext& ctx) = 0;
+    // How far the OSD text on scanline `y` is pushed sideways / up-down by
+    // this pass's signal (only the tape-signal pass moves it).
+    virtual int osd_shift(int /*y*/) const { return 0; }
+    virtual int osd_hop() const { return 0; }
 };
 
 // Where a pass plugs into the pipeline:
@@ -61,7 +65,7 @@ public:
     static uint32_t osd_color(uint8_t c);
 
 private:
-    void draw_osd(const GpuRegs& regs);
+    void draw_osd(const GpuRegs& regs, const PicturePass* jitter);
     void power_off_effect();
 
     Framebuffer picture_{kScreenW, kScreenH};

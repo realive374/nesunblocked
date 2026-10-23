@@ -61,13 +61,21 @@ void Gpu::compose(const GpuRegs& regs, const Framebuffer* tape_frame, uint64_t f
     }
 
     // Layer 2: on-screen display, then host overlay.
-    draw_osd(regs);
+    // Over tape video the OSD rides the same unstable signal and jitters with it.
+    draw_osd(regs, screen == io::SCREEN_TAPE && tape_frame ? pass(PassSlot::TapeSignal) : nullptr);
     if (overlay) overlay(picture_);
     if (PicturePass* p = pass(PassSlot::Field)) p->apply(picture_, ctx);
     last_on_.px = picture_.px;
 }
 
-void Gpu::draw_osd(const GpuRegs& regs) {
+void Gpu::draw_osd(const GpuRegs& regs, const PicturePass* jitter) {
+    const int hop = jitter ? jitter->osd_hop() : 0;
+    auto plot = [&](int x, int y, uint32_t c) {
+        y += hop;
+        if (y < 0 || y >= kScreenH) return;
+        x += jitter ? jitter->osd_shift(y) : 0;
+        if (x >= 0 && x < kScreenW) picture_.at(x, y) = c;
+    };
     for (int row = 0; row < GpuRegs::kRows; ++row) {
         for (int col = 0; col < GpuRegs::kCols; ++col) {
             const GpuRegs::Cell& cell = regs.cell(col, row);
@@ -81,12 +89,11 @@ void Gpu::draw_osd(const GpuRegs& regs) {
                     if (g[r] & (1u << c))
                         for (int dy = 0; dy <= 1; ++dy)
                             for (int dx = 0; dx <= 1; ++dx) {
-                                const int x = x0 + c + dx, y = y0 + r + dy;
-                                if ((dx || dy) && x < kScreenW && y < kScreenH) picture_.at(x, y) = rgb(0, 24, 0);
+                                if (dx || dy) plot(x0 + c + dx, y0 + r + dy, rgb(0, 24, 0));
                             }
             for (int r = 0; r < 8; ++r)
                 for (int c = 0; c < 8; ++c)
-                    if (g[r] & (1u << c)) picture_.at(x0 + c, y0 + r) = color;
+                    if (g[r] & (1u << c)) plot(x0 + c, y0 + r, color);
         }
     }
 }

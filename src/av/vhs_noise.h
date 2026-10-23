@@ -35,6 +35,12 @@ public:
     // Tracking band state, exposed for the debug overlay and tests.
     float band_strength() const { return band_strength_; }
 
+    // The OSD text over tape video jitters with the picture: the same
+    // per-line time-base error, a whole-text wobble that changes every frame,
+    // and an occasional one-line vertical hop.
+    int osd_shift(int y) const override;
+    int osd_hop() const override { return osd_dy_; }
+
 private:
     void update_band();
     void process_row(const uint32_t* src, uint32_t* dst, int w, float shift, float soften, float chroma_r,
@@ -50,6 +56,9 @@ private:
     int band_timer_ = 90;
     int band_len_ = 0, band_age_ = 0;
     std::vector<float> y_, i_, q_, tmp_;
+    std::vector<float> line_shift_;  // horizontal displacement of each scanline this frame
+    float osd_dx_ = 0;
+    int osd_dy_ = 0;
     std::vector<uint32_t> src_row_;
 };
 

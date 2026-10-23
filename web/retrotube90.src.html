@@ -729,7 +729,10 @@ class VhsNoise {
     this.intensity = 0.15; this.trackAge = 1 << 20; this.search = false;
     this.bandY = 0.85; this.band = 0; this.bandTimer = 90; this.bandLen = 0; this.bandAge = 0;
     this.Y = new Float32Array(W); this.I = new Float32Array(W); this.Q = new Float32Array(W); this.T = new Float32Array(W);
+    this.lineShift = new Float32Array(H); this.osdDx = 0; this.osdDy = 0;
   }
+  // OSD words over tape video ride the same unstable signal.
+  osdShift(y) { return Math.round(this.osdDx + (y >= 0 && y < H ? this.lineShift[y] : 0) * 1.5); }
   startTracking() { this.trackAge = 0; }
   get tracking() { return this.trackAge < 180; }
   effective() {
@@ -754,8 +757,12 @@ class VhsNoise {
     if (this.trackAge < (1 << 20)) this.trackAge++;
     const e = this.effective(); this.updateBand(e);
     const soften = Math.min(1, 0.45 + e * 0.8), cr = Math.max(1, Math.round(1.5 + e * 5)), delay = Math.round(1 + e * 2.5);
-    const grain = e * 14, jitter = e * 1.6, bandC = (this.bandY * H) | 0, bandHalf = (3 + e * 8) | 0, hs = 3 + ((e * 5) | 0);
+    const grain = e * 14, jitter = 0.6 + e * 1.8, bandC = (this.bandY * H) | 0, bandHalf = (3 + e * 8) | 0, hs = 3 + ((e * 5) | 0);
     const phase = unit() * 100, { Y, I, Q, T } = this;
+    // OSD wobble: new sideways offset each frame (smoothed), an occasional sharper glitch, a rare hop.
+    this.osdDx = 0.5 * this.osdDx + 0.5 * (unit() * 2 - 1) * (0.9 + e * 3);
+    if (unit() < 0.04 + e * 0.2) this.osdDx += (unit() < 0.5 ? -1 : 1) * (2 + e * 4);
+    this.osdDy = unit() < 0.05 + e * 0.25 ? (unit() < 0.5 ? -1 : 1) : 0;
     for (let y = 0; y < H; y++) {
       let shift = jitter * (0.6 * Math.sin(y * 0.05 + phase) + 0.4 * (unit() * 2 - 1));
       let band = 0;
@@ -765,6 +772,7 @@ class VhsNoise {
       }
       const fb2 = H - 1 - y;
       if (fb2 < hs) shift += (1 - fb2 / hs) * (2 + e * 10) + (unit() * 2 - 1) * (0.5 + e * 2);
+      this.lineShift[y] = shift;
       const row = y * W * 4;
       for (let x = 0; x < W; x++) {
         const sx = x - shift, x0 = Math.floor(sx), f = sx - x0;
@@ -1211,17 +1219,22 @@ function compose() {
     return;
   }
   lastScreen = scr;
+  let jitter = false;
   if (scr === SCR.STATIC) drawSnow(f);
   else if (scr === SCR.BLUE) px.fill(COL.BLUE);
-  else if (scr === SCR.TAPE && source && deck.state !== DS.STOP) vhs.apply(source.draw(Math.min(deck.pos, deck.tape.frames - 1)), f);
+  else if (scr === SCR.TAPE && source && deck.state !== DS.STOP) { vhs.apply(source.draw(Math.min(deck.pos, deck.tape.frames - 1)), f); jitter = true; }
   else px.fill(COL.BLACK);
 
-  for (let i = 0; i < 1200; i++) {  // firmware OSD: blocky text with a dark outline
+  // Firmware OSD: blocky text with a dark outline. Over tape video the words
+  // jitter with the picture (per-line shimmer, frame wobble, occasional hop).
+  const hop = jitter ? vhs.osdDy : 0;
+  const plot = (x, y, c) => { y += hop; if (y < 0 || y >= H) return; if (jitter) x += vhs.osdShift(y); if (x >= 0 && x < W) px[y * W + x] = c; };
+  for (let i = 0; i < 1200; i++) {
     const ch = g.shownCh[i]; if (ch === 32 || ch === 0) continue;
     const x0 = (i % 40) * 8, y0 = ((i / 40) | 0) * 8, gl = FONT[ch & 0x7F], c = OSD_COLORS[g.shownCol[i]] || COL.GREEN;
     for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (gl[r] & (1 << b))
-      for (let dy = 0; dy <= 1; dy++) for (let dx = 0; dx <= 1; dx++) if ((dx || dy) && x0 + b + dx < W && y0 + r + dy < H) px[(y0 + r + dy) * W + x0 + b + dx] = rgb(0, 24, 0);
-    for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (gl[r] & (1 << b)) px[(y0 + r) * W + x0 + b] = c;
+      for (let dy = 0; dy <= 1; dy++) for (let dx = 0; dx <= 1; dx++) if (dx || dy) plot(x0 + b + dx, y0 + r + dy, rgb(0, 24, 0));
+    for (let r = 0; r < 8; r++) for (let b = 0; b < 8; b++) if (gl[r] & (1 << b)) plot(x0 + b, y0 + r, c);
   }
   drawOverlay(f);
   interlace.apply(f);

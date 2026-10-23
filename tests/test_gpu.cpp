@@ -1,5 +1,8 @@
 // GPU tests: layer compositing, OSD rendering, pass slots and the CRT filter.
 #include <chrono>
+#include <set>
+
+#include "av/vhs_noise.h"
 
 #include "gpu/draw.h"
 #include "gpu/font.h"
@@ -228,4 +231,48 @@ TEST(crt_is_fast_enough_for_30fps) {
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() / 10;
     std::printf("    crt: %.2f ms/frame at 960x720\n", ms);
     CHECK(ms < 33.0);
+}
+
+namespace {
+// Leftmost x of the green OSD text in rows [y0, y1), or -1.
+int osd_left_edge(const Framebuffer& p, int y0, int y1) {
+    int best = -1;
+    for (int y = y0; y < y1; ++y)
+        for (int x = 0; x < 100; ++x)
+            if (p.at(x, y) == Gpu::kOsdGreen) {
+                if (best < 0 || x < best) best = x;
+                break;
+            }
+    return best;
+}
+}  // namespace
+
+TEST(gpu_osd_words_jitter_with_the_tape) {
+    GpuRegs regs;
+    Gpu gpu;
+    VhsNoisePass vhs;
+    gpu.set_pass(PassSlot::TapeSignal, &vhs);
+    Framebuffer tape(kScreenW, kScreenH, rgb(20, 20, 20));
+    set_screen(regs, SCREEN_TAPE);
+    write_text(regs, 2, 2, "PLAY \x10");
+    std::set<int> lefts;
+    int hops = 0;
+    for (int f = 0; f < 90; ++f) {
+        gpu.compose(regs, &tape, static_cast<uint64_t>(f));
+        const int left = osd_left_edge(gpu.picture(), 8, 34);
+        CHECK(left >= 16 - 12 && left <= 16 + 12);  // still readable where it belongs
+        lefts.insert(left);
+        hops += vhs.osd_hop() != 0;
+    }
+    CHECK(lefts.size() >= 3);  // the words visibly move from frame to frame
+    CHECK(hops > 0);
+
+    // The VCR's own blue screen is rock steady.
+    set_screen(regs, SCREEN_BLUE);
+    lefts.clear();
+    for (int f = 0; f < 30; ++f) {
+        gpu.compose(regs, &tape, static_cast<uint64_t>(100 + f));
+        lefts.insert(osd_left_edge(gpu.picture(), 8, 34));
+    }
+    CHECK_EQ(lefts.size(), 1u);
 }

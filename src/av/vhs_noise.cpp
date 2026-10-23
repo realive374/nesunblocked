@@ -10,6 +10,11 @@ namespace {
 constexpr float kPi = 3.14159265358979f;
 }
 
+int VhsNoisePass::osd_shift(int y) const {
+    const float line = (y >= 0 && static_cast<size_t>(y) < line_shift_.size()) ? line_shift_[static_cast<size_t>(y)] : 0.0f;
+    return static_cast<int>(std::lround(osd_dx_ + line * 1.5f));
+}
+
 void VhsNoisePass::set_intensity(float v) { intensity_ = std::clamp(v, 0.0f, 1.0f); }
 
 float VhsNoisePass::effective() const {
@@ -109,11 +114,18 @@ void VhsNoisePass::apply(Framebuffer& fb, const FrameContext& ctx) {
     const float chroma_r = 1.5f + e * 5.0f;
     const float chroma_delay = 1.0f + e * 2.5f;
     const float grain = e * 14.0f;
-    const float jitter = e * 1.6f;
+    const float jitter = 0.6f + e * 1.8f;  // always a little: text in the picture visibly wobbles
     const int band_c = static_cast<int>(band_y_ * static_cast<float>(h));
     const int band_half = static_cast<int>(3 + e * 8);
     const int hs_lines = 3 + static_cast<int>(e * 5);  // head-switching region
     const float line_phase = rng_.unit() * 100.0f;
+    line_shift_.assign(static_cast<size_t>(h), 0.0f);
+    // OSD wobble: a new sideways offset every frame (smoothed so it shimmers
+    // rather than flickers), now and then a sharper glitch, and a rare hop.
+    const float target = rng_.signed_unit() * (0.9f + e * 3.0f);
+    osd_dx_ = 0.5f * osd_dx_ + 0.5f * target;
+    if (rng_.unit() < 0.04f + e * 0.2f) osd_dx_ += (rng_.unit() < 0.5f ? -1.0f : 1.0f) * (2.0f + e * 4.0f);
+    osd_dy_ = rng_.unit() < 0.05f + e * 0.25f ? (rng_.unit() < 0.5f ? -1 : 1) : 0;
 
     for (int y = 0; y < h; ++y) {
         uint32_t* row = fb.row(y);
@@ -130,6 +142,7 @@ void VhsNoisePass::apply(Framebuffer& fb, const FrameContext& ctx) {
             const float k = 1.0f - static_cast<float>(from_bottom) / static_cast<float>(hs_lines);
             shift += k * (2.0f + e * 10.0f) + rng_.signed_unit() * (0.5f + e * 2.0f);
         }
+        line_shift_[static_cast<size_t>(y)] = shift;
         process_row(src_row_.data(), row, w, shift, soften, chroma_r, chroma_delay, grain);
         if (band > 0) {  // tracking band: bright speckled streaks
             const float p = band * (0.05f + e * 0.35f);
